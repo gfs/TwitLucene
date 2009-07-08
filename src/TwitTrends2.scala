@@ -4,7 +4,6 @@ import scala.actors._
 import scala.actors.Actor._
 import java.io.File
 import java.util.Date
-import org.apache.lucene.analysis.standard.StandardAnalyzer
 import org.apache.lucene.analysis.Analyzer
 import org.apache.lucene.document._
 import org.apache.lucene.index.{IndexWriter,Term,IndexReader}
@@ -14,20 +13,69 @@ import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 
 object ParseJSON {
-	val ACTORS = 6
-	val READERS = 5
-	val COMMIT_LEVEL = 100
+	val ACTORS = 5
+	val COMMIT_LEVEL = 10000
 	val INDEX_DIR = new File("index");
 	val dateTimeFmt = DateTimeFormat.forPattern("EEE MMM dd HH:mm:ss Z YYYY")
+	
+	class TweetAnalyzer extends Analyzer{
+		import org.apache.lucene.analysis.StopFilter
+		import org.apache.lucene.analysis.CharTokenizer
+		import org.apache.lucene.analysis.TokenStream
+		import java.io.Reader
+		
+		val STOP_WORDS = Array("0", "1", "2", "3", "4", "5", "6", "7", "8",
+        "9", "000", "$",
+        // "about", "after", "all", "also", "an", "and",
+        // "another", "any", "are", "as", "at", "be",
+        // "because", "been", "before", "being", "between",
+        // "both", "but", "by", "came", "can", "come",
+        // "could", "did", "do", "does", "each", "else",
+        // "for", "from", "get", "got", "has", "had",
+        // "he", "have", "her", "here", "him", "himself",
+        // "his", "how","if", "in", "into", "is", "it",
+        // "its", "just", "like", "make", "many", "me",
+        // "might", "more", "most", "much", "must", "my",
+        // "never", "now", "of", "on", "only", "or",
+        // "other", "our", "out", "over", "re", "said",
+        // "same", "see", "should", "since", "so", "some",
+        // "still", "such", "take", "than", "that", "the",
+        // "their", "them", "then", "there", "these",
+        // "they", "this", "those", "through", "to", "too",
+        // "under", "up", "use", "very", "want", "was",
+        // "way", "we", "well", "were", "what", "when",
+        // "where", "which", "while", "who", "will",
+        // "with", "would", "you", "your",
+        "a", "b", "c", "d", "e", "f", "g", "h", "i",
+        "j", "k", "l", "m", "n", "o", "p", "q", "r",
+        "s", "t", "u", "v", "w", "x", "y", "z")
+		
+		val STOP_SET = StopFilter.makeStopSet(STOP_WORDS)
+		
+		def tokenStream(fieldName:String, reader:Reader):TokenStream={
+			return new StopFilter(new TweetTokenizer(reader),STOP_SET)
+		}
+		
+		class TweetTokenizer(reader:Reader) extends CharTokenizer(reader:Reader){
+			override def isTokenChar(c: char):boolean={
+				c match{
+					case '@' =>
+						return true
+					case '#' =>
+						return true
+					case x:char =>
+						return Character.isLetter(x)
+				}
+			}
+		}
+	}
 	
 	def main(args: Array[String]){
 		val date = new Date()
 		val factory: JsonFactory = new JsonFactory();		
 		val lines = Source.fromFile(args(0),"UTF-8").getLines
 
-		val writer = new IndexWriter(args(0)+"_index", new StandardAnalyzer(), true, IndexWriter.MaxFieldLength.LIMITED)
-		// val wActor = new WriteActor(writer)
-		// wActor.start
+		val writer = new IndexWriter(args(0)+"_index", new TweetAnalyzer(), true, IndexWriter.MaxFieldLength.LIMITED)
 		val reader = new ReadActor(date,lines,writer)
 		reader.start
 		for(i <- 1 to ACTORS){
@@ -61,28 +109,34 @@ object ParseJSON {
 	class ReadActor(date:Date,lines:Iterator[_],writer:IndexWriter) extends Actor{
 		def act(){
 			var i=0
-			while(lines.hasNext){
-				receive{
+			var actorsRemain = ACTORS
+			loop{
+				react{
 					case ("Gimme",actor:Actor) =>
 						i=i+1
-						if(i%10000==0){
+						if(i%COMMIT_LEVEL==0){
 							print(".")
 							writer.commit
 						}
-						val line = lines.next
-						actor ! line
+						if(lines.hasNext){
+							var line:String = lines.next.toString
+					 		if (!line.trim.isEmpty){
+								actor ! line
+								} else{
+									actor ! "again"
+								}
+						} else{
+							actor ! "Die"
+							actorsRemain -= 1
+							if (actorsRemain == 0){
+								writer.close
+								val date2 = new Date
+								println("Time elapsed: "+(date2.getTime - date.getTime)+" ms")
+							}
+						}
+							
 				}
 			}
-			for(i<- 1 to ACTORS){
-				receive{
-					case ("Gimme",actor:Actor) =>
-						actor ! "Die"
-				}
-			}
-			// wActor!"Die"
-			writer.close
-			val date2 = new Date
-			println("Time elapsed: "+(date2.getTime - date.getTime)+" ms")
 		}
 	}
 	
@@ -94,6 +148,8 @@ object ParseJSON {
 				react{
 					case "Die" =>
 						this.exit
+					case "again" =>	
+						//Do nothing, allow it to ask for gimme again
 					case x:String =>	
 						try {
 							val jp:JsonParser = factory.createJsonParser(x);
@@ -134,11 +190,9 @@ object ParseJSON {
 								}								
 							}
 							writer.addDocument(doc)
-							// writeActor!doc
 						} catch {
 								case e: NullPointerException => 
 								case e: Exception =>
-									println(x)
 									e.printStackTrace
 						}
 					case null =>
@@ -146,17 +200,4 @@ object ParseJSON {
 			}
 		}
 	}
-	
-	// class WriteActor(writer:IndexWriter) extends Actor{
-	// 	def act(){
-	// 		loop{
-	// 			react{
-	// 				case doc:Document =>
-	// 					writer.addDocument(doc)
-	// 				case "Die" =>
-	// 					this.exit
-	// 			}
-	// 		}
-	// 	}
-	// }
 }

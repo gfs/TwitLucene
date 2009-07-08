@@ -13,42 +13,56 @@ import scala.collection.mutable.HashMap
 object SearchTwitter{
 	val beg = 11
 	val end = 20
-	val term = "iran"
-	val index = "tweets.2009-06-11_index"
+	val term = "tehran*"
+	val location = "tehran"
 	
 	def main(args: Array[String]){
 	//	getDayResults((2009 to 2009), (06 to 06), (11 to 11), term)
 		val start = new DateTime
-		getHourResults((2009 to 2009), (06 to 06), (11 to 12), (0 to 23), term)
+		getHourResults((2009 to 2009), (06 to 06), (11 to 14), (0 to 23), term)
 	}
 	
-	def getDayResults(year:Range,month:Range,day:Range,term:String){//Different functions for different granulatrities?
-		val waitActor = new WaitActor()
-		for (curYear <- year){
-			for (curMon <- month){
-				for (curDay <- day){
-					val (start, end) = genDateStrings(curYear,curMon,curDay)
-					val sActor = new SearchActor(term,start,end,index,waitActor)
-					sActor.start()
-				}
-			}
-		}
-	}
+	// def getDayResults(year:Range,month:Range,day:Range,term:String){//Different functions for different granulatrities?
+	// 	val waitActor = new WaitActor()
+	// 	for (curYear <- year){
+	// 		for (curMon <- month){
+	// 			for (curDay <- day){
+	// 				val (start, end) = genDateStrings(curYear,curMon,curDay)
+	// 				val sActor = new SearchActor(term,start,end,index,waitActor)
+	// 				sActor.start()
+	// 			}
+	// 		}
+	// 	}
+	// }
 	
 	def getHourResults(year:Range,month:Range,day:Range,hour:Range,term:String){//Different functions for different granulatrities?
 		val waitActor = new WaitActor()
 		for (curYear <- year){
 			for (curMon <- month){
 				for (curDay <- day){
-					for (curHour <- hour){
-						val (start, end) = genDateStrings(curYear,curMon,curDay,curHour)
-						val sActor = new SearchActor(term,start,end,index,waitActor)
-						sActor.start()
-					}
+					// for (indexDay <- curDay-1 to curDay+1){
+
+						val index = genIndexString(curYear,curMon,curDay)
+						for (curHour <- hour){
+							val (start, end) = genDateStrings(curYear,curMon,curDay,curHour)
+							val sActor = new SearchActor(term,start,end,index,waitActor)
+							sActor.start()
+						}
+					// }
 				}
 			}
 		}
 		waitActor.start()
+	}
+	
+	def genIndexString(year:Int, mon:Int, day:Int):(String)={
+		var indMon=mon.toString
+		var indDay=day.toString
+		if (mon < 10)
+			indMon = "0" + mon
+		if (day < 10)
+			indDay = "0" + day
+		return "tweets."+year+"-"+indMon+"-"+indDay+"_index"
 	}
 	
 	//Fixes leading zeroes on dates
@@ -71,14 +85,14 @@ object SearchTwitter{
 			loop{
 				react{
 					case x:(String,Int) =>
-						val (key,elem)=x
+					//	val (key,elem)=x
 						toWait = toWait - 1
 						if(toWait == 0){
-							hash.foreach{e => println(e._1+" = "+e._2)}
-							println("Done!")
+					//		hash.foreach{e => println(e._1+"\t"+e._2)}
+							// println("Done!")
 							this.exit
 						}
-						hash += (key -> elem)			
+					//	hash += (key -> elem)			
 					case "Hi" =>
 						toWait = toWait + 1
 				}
@@ -89,9 +103,10 @@ object SearchTwitter{
 	class SearchActor(term:String,start:String,end:String,index:String,printer:WaitActor) extends Actor{
 		def act(){
 			printer ! "Hi"
-			var searcher = new IndexSearcher(IndexReader.open(index));
-			val query = new QueryParser("text:"+term,new StandardAnalyzer())
-			val hits:TopDocs = searcher.search(query.parse("text:"+term),new RangeFilter("created_at",start,end,true,false),1)
+			val searcher = new IndexSearcher(IndexReader.open(index));
+			val query = new QueryParser("location:"+term,new StandardAnalyzer())
+			val hits:TopDocs = searcher.search(query.parse("location:"+term),new RangeFilter("created_at",start,end,true,false),1)
+			println(start+"\t"+hits.totalHits)
 			printer ! (start,hits.totalHits)			
 		}
 	}
