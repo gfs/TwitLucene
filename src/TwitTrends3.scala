@@ -1,5 +1,5 @@
 import org.joda.time.DateTime
-import org.apache.lucene.search.{IndexSearcher,TopDocs,RangeFilter,Query}
+import org.apache.lucene.search.{IndexSearcher,TopDocs,RangeFilter,Query,ConstantScoreRangeQuery}
 import org.apache.lucene.queryParser.QueryParser
 import org.apache.lucene.index.IndexReader
 import org.apache.lucene.analysis.standard.StandardAnalyzer
@@ -67,10 +67,9 @@ object SearchTwitter{
 			val parser: QueryParser = new QueryParser("location",new TweetAnalyzer())
 			val query:Query = parser.parse(term)
 			val hits:TopDocs = searcher.search(query,new RangeFilter("created_at",start,end,true,false),1)
-			val parser2: QueryParser = new QueryParser("created_at",new KeywordAnalyzer())
-			val query2:Query = parser.parse("["+start+" TO "+end+"]")
-			val totals:TopDocs = searcher.search(query, null, 1)
-			println(start+"\t"+hits.totalHits+"\t"+totals.totalHits+"\t"+"["+start+" TO "+end+"]")
+			val query2: ConstantScoreRangeQuery = new ConstantScoreRangeQuery("created_at",start,end,true,false)
+			val totals:Hits = searcher.search(query2)
+			println(start+"\t"+hits.totalHits+"/"+totals.length)
 		}
 	}
 	
