@@ -11,13 +11,10 @@ import scala.actors.Actor._
 import scala.collection.mutable.HashMap
 import org.apache.lucene.search.Hits
 
-//Have to allow arbitrary granularity as well as arbitrary ranges
-//To keep queries fast must use 1 hour granularity or smaller at all times
 
 object SearchTwitter{
 	val beg = 11
 	val end = 20
-	// val term = "tehran*"
 	val index = "theFullIndex"
 	
 	def main(args: Array[String]){
@@ -36,10 +33,6 @@ object SearchTwitter{
 		}
 	}
 
-	// class myHitCollector extends HitCollector{
-	// 	collect(int doc, float score)
-	// }
-
 	def getTopChatters(term:String){
 		import scala.collection.mutable.HashMap
 		
@@ -49,10 +42,7 @@ object SearchTwitter{
 		val collector:TopDocCollector = new TopDocCollector(20000000)
 		searcher.search(query,collector)
 		val hits = collector.topDocs().scoreDocs
-		// val hits:Hits = searcher.search(query)
-		// val itr:Iterator[Hits] = hits.iterator
 		val hash = new HashMap[int, int]
-		// while(itr.hasNext){
 		for(i <- 1 to hits.length-1){
 			val docId = hits(i).doc
 			val d:Document = searcher.doc(docId)
@@ -64,30 +54,12 @@ object SearchTwitter{
 				hash.put(value.toInt,1)
 			}
 		}
-		// 	val hit:Hit=itr.next
-		// 	val value:String = hit.getDocument.getField("user_id").stringValue
-		// 	if(hash.contains(value.toInt)){
-		// 		val num = hash.get(value.toInt)
-		// 		hash.update(value.toInt,num+1)
-		// 	} else{
-		// 		hash.put(value.toInt,1)
-		// 	}
-		// }
 		val alist = hash.toList
-		val sortedList = alist.sort((x,y) => x._2 > y._2)
+		val sortedList = alist.sort((x,y) => x._2 > y._2)//Sort by number of reply messages each user has posted
 		for (i <- 1 to 1000){
 			println(sortedList(i))
 		}
 	}
-
-	// class chatter(id:Int,numChats:Int) extends Ordered[chatter]{
-	// 	val id=id
-	// 	val numChats=numChats
-	// 	
-	// 	def compare(that:chatter)={
-	// 		return this.numChats-that.numChats
-	// 	}
-	// }
 
 	def getHourResults(year:Range,month:Range,day:Range,hour:Range,term:String){//Different functions for different granulatrities?
 		val searcher = new IndexSearcher(IndexReader.open(index));
@@ -147,26 +119,6 @@ object SearchTwitter{
 		
 		val STOP_WORDS = Array("0", "1", "2", "3", "4", "5", "6", "7", "8",
         "9", "000", "$",
-        // "about", "after", "all", "also", "an", "and",
-        // "another", "any", "are", "as", "at", "be",
-        // "because", "been", "before", "being", "between",
-        // "both", "but", "by", "came", "can", "come",
-        // "could", "did", "do", "does", "each", "else",
-        // "for", "from", "get", "got", "has", "had",
-        // "he", "have", "her", "here", "him", "himself",
-        // "his", "how","if", "in", "into", "is", "it",
-        // "its", "just", "like", "make", "many", "me",
-        // "might", "more", "most", "much", "must", "my",
-        // "never", "now", "of", "on", "only", "or",
-        // "other", "our", "out", "over", "re", "said",
-        // "same", "see", "should", "since", "so", "some",
-        // "still", "such", "take", "than", "that", "the",
-        // "their", "them", "then", "there", "these",
-        // "they", "this", "those", "through", "to", "too",
-        // "under", "up", "use", "very", "want", "was",
-        // "way", "we", "well", "were", "what", "when",
-        // "where", "which", "while", "who", "will",
-        // "with", "would", "you", "your",
         "a", "b", "c", "d", "e", "f", "g", "h", "i",
         "j", "k", "l", "m", "n", "o", "p", "q", "r",
         "s", "t", "u", "v", "w", "x", "y", "z")
