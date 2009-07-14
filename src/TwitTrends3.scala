@@ -1,5 +1,6 @@
 import org.joda.time.DateTime
-import org.apache.lucene.search.{IndexSearcher,TopDocs,RangeFilter,Query,ConstantScoreRangeQuery}
+import org.apache.lucene.search.{IndexSearcher,TopDocs,RangeFilter,Query,ConstantScoreRangeQuery,HitIterator,Hits,Hit,TopDocCollector}
+import org.apache.lucene.document.Document
 import org.apache.lucene.queryParser.QueryParser
 import org.apache.lucene.index.IndexReader
 import org.apache.lucene.analysis.standard.StandardAnalyzer
@@ -16,19 +17,84 @@ import org.apache.lucene.search.Hits
 object SearchTwitter{
 	val beg = 11
 	val end = 20
-	val term = "tehran*"
+	// val term = "tehran*"
+	val index = "theFullIndex"
 	
 	def main(args: Array[String]){
+		val mode = args(0)
 		val start = new DateTime
-		getHourResults((2009 to 2009), (06 to 06), (11 to 22), (0 to 23), term)
+		mode match{
+			case "hour" =>
+				val term = args(1)
+				val beg = args(2)
+				val end = args(3)
+				getHourResults((2009 to 2009), (06 to 06), (beg.toInt to end.toInt), (0 to 23), term)
+			case "topChatters" =>
+				val term = args(1)
+				println(args(1))
+				getTopChatters(term)
+		}
 	}
 
+	// class myHitCollector extends HitCollector{
+	// 	collect(int doc, float score)
+	// }
+
+	def getTopChatters(term:String){
+		import scala.collection.mutable.HashMap
+		
+		val searcher:IndexSearcher = new IndexSearcher(IndexReader.open(index))
+		val parser: QueryParser = new QueryParser("location",new TweetAnalyzer())
+		val query:Query = parser.parse(term)
+		val collector:TopDocCollector = new TopDocCollector(20000000)
+		searcher.search(query,collector)
+		val hits = collector.topDocs().scoreDocs
+		// val hits:Hits = searcher.search(query)
+		// val itr:Iterator[Hits] = hits.iterator
+		val hash = new HashMap[int, int]
+		// while(itr.hasNext){
+		for(i <- 1 to hits.length-1){
+			val docId = hits(i).doc
+			val d:Document = searcher.doc(docId)
+			val value = d.getField("user_id").stringValue
+			if(hash.contains(value.toInt)){
+				val num:Int = hash.get(value.toInt).get
+				hash.update(value.toInt,num+1)
+			} else{
+				hash.put(value.toInt,1)
+			}
+		}
+		// 	val hit:Hit=itr.next
+		// 	val value:String = hit.getDocument.getField("user_id").stringValue
+		// 	if(hash.contains(value.toInt)){
+		// 		val num = hash.get(value.toInt)
+		// 		hash.update(value.toInt,num+1)
+		// 	} else{
+		// 		hash.put(value.toInt,1)
+		// 	}
+		// }
+		val alist = hash.toList
+		val sortedList = alist.sort((x,y) => x._2 > y._2)
+		for (i <- 1 to 1000){
+			println(sortedList(i))
+		}
+	}
+
+	// class chatter(id:Int,numChats:Int) extends Ordered[chatter]{
+	// 	val id=id
+	// 	val numChats=numChats
+	// 	
+	// 	def compare(that:chatter)={
+	// 		return this.numChats-that.numChats
+	// 	}
+	// }
+
 	def getHourResults(year:Range,month:Range,day:Range,hour:Range,term:String){//Different functions for different granulatrities?
+		val searcher = new IndexSearcher(IndexReader.open(index));
 		for (curYear <- year){
 			for (curMon <- month){
 				for (curDay <- day){
-					val index = genIndexString(curYear,curMon,curDay)
-					val searcher = new IndexSearcher(IndexReader.open(index));
+					// val index = genIndexString(curYear,curMon,curDay)
 					for (curHour <- hour){
 						val sActor = new SearchActor(term,genDateStrings(curYear,curMon,curDay,curHour),index,searcher)
 						sActor.start()
@@ -69,7 +135,7 @@ object SearchTwitter{
 			val hits:TopDocs = searcher.search(query,new RangeFilter("created_at",start,end,true,false),1)
 			val query2: ConstantScoreRangeQuery = new ConstantScoreRangeQuery("created_at",start,end,true,false)
 			val totals:Hits = searcher.search(query2)
-			println(start+"\t"+hits.totalHits+"/"+totals.length)
+			println(start+"\t"+hits.totalHits+"\t"+totals.length)
 		}
 	}
 	
