@@ -210,7 +210,8 @@ object SearchTwitter{
 					getHourResults((2009 to 2009), (06 to 06), (beg.toInt to end.toInt), (0 to 23), term)
 				case "topChatters" =>
 					val term = args(1)
-					getTopChatters(term)
+					val numChatters = args(2)
+					getTopChatters(term,numChatters.toInt)
 				case "help" =>
 					printHelp
 			}
@@ -221,10 +222,10 @@ object SearchTwitter{
 	}
 	
 	def printHelp{
-		println("Run options: {hour term begin end} | {topChatters term} | {help}")
+		println("Run options: {hour term begin end} | {topChatters term numChatters} | {help}")
 	}
 
-	def getTopChatters(term:String){
+	def getTopChatters(term:String,numChatters:Int){
 		import scala.collection.mutable.HashMap
 		
 		val searcher:IndexSearcher = new IndexSearcher(IndexReader.open(index))
@@ -246,9 +247,12 @@ object SearchTwitter{
 			}
 		}
 		val alist = hash.toList
-		val sortedList = alist.sort((x,y) => x._2 > y._2)//Sort by number of reply messages each user has posted
-		for (i <- 1 to 1000){
-			println(sortedList(i))
+		val sortedList:List[(int,int)] = alist.sort((x,y) => x._2 > y._2)//Sort by number of reply messages each user has posted
+		print("follow=")
+		for (i <- 1 to numChatters){
+			print(sortedList(i)._1)
+			if(i<numChatters)
+				print(",")
 		}
 	}
 
