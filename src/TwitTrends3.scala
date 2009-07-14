@@ -253,6 +253,8 @@ object SearchTwitter{
 			print(sortedList(i)._1)
 			if(i<numChatters)
 				print(",")
+			else
+				print("\n")
 		}
 	}
 
