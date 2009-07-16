@@ -1,5 +1,7 @@
 package com.stocco.TwitLucene
-
+/**
+* Takes a JSON file as input and creates a lucene index named after the file name with "_index" appended.  Uses multiple actors concurrently parsing.
+*/
 object ParseJSON {
 	import org.codehaus.jackson._
 	import scala.io.Source
@@ -15,9 +17,14 @@ object ParseJSON {
 	import org.joda.time.DateTime
 	import org.joda.time.format.DateTimeFormat
 	
+	/**
+	* Constant. 5 actors seems to be the current magic number as of Scala 2.7.5.final.  Any more actors and throughput drops.
+	*/
 	val ACTORS = 5
+	/**
+	* Constant. Sets how often the program will commit progress to the index. Set to every 10,000 records.
+	*/
 	val COMMIT_LEVEL = 10000
-	val INDEX_DIR = new File("index");
 	val dateTimeFmt = DateTimeFormat.forPattern("EEE MMM dd HH:mm:ss Z YYYY")
 	
 	def main(args: Array[String]){
@@ -31,28 +38,6 @@ object ParseJSON {
 		for(i <- 1 to ACTORS){
 			val pActor:ParseActor = new ParseActor(reader,writer,factory)
 			pActor.start
-		}
-	}
-	
-	def RecurseJSON(doc:Document,input:List[_],pre:String){
-		for (elem <- input){
-			val (a,b) = elem
-			b match{
-				case x:List[_] =>
-					RecurseJSON(doc,x,"user_")
-				case null =>
-				case _ =>
-					a match{
-						case "text" =>
-							doc.add(new Field(pre+a, b.toString, Field.Store.YES, Field.Index.ANALYZED))
-						case "created_at" =>
-							val time: DateTime = try { dateTimeFmt.parseDateTime(b.toString)}
-							catch { case _ => throw new Exception("Could not parse time.")}
-							doc.add(new Field(pre+a, time.toString, Field.Store.YES, Field.Index.NOT_ANALYZED))
-						case _ =>
-							doc.add(new Field(pre+a, b.toString, Field.Store.NO, Field.Index.NO))
-					}
-			}
 		}
 	}
 	

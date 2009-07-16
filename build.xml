@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project name="ScalaTest" default="build" basedir=".">
+<project name="TwitLucene" default="build" basedir=".">
 	<description> simple test to build Scala project </description>
 
-	<!-- Common paths -->
 	<property name="src.dir" value="${basedir}/src" />
 	<property name="build.dir" value="${basedir}/build"/>
 	<property name="lib.dir" value="${basedir}/lib" />
+	<property name="dist.dir" value="${basedir}/dist" />
+	<property name="docs.dir" value="${basedir}/docs" />
 	<property name="scala.home" value="/opt/local/share/scala" />
-	<!-- Scala CLASSPATH -->
 	<property name="scala-compiler.jar" value="${scala.home}/lib/scala-compiler.jar"/>
 	<property name="scala-library.jar" value="${scala.home}/lib/scala-library.jar"/>
 	<path id="scala.classpath">
@@ -15,19 +15,16 @@
 		<pathelement location="${scala-library.jar}"/>
 	</path>
 
-	<!-- Project CLASSPATH -->
 	<path id="project.classpath">
 		<path refid="scala.classpath"/>
 		<pathelement location="${build.dir}"/>
 		<fileset dir="${lib.dir}" includes="**/*.jar" followsymlinks="false"/>
 	</path>
 
-	<!-- Scala compiler task -->
 	<taskdef resource="scala/tools/ant/antlib.xml">
 		<classpath refid="scala.classpath"/>
 	</taskdef>
 
-	<!-- Compiles sources by using "scalac" command. -->
 	<target name="compile" depends="clean">
 		<mkdir dir="${build.dir}"/>
 		<scalac srcdir="${src.dir}" destdir="${build.dir}" classpathref="project.classpath" force="changed">
@@ -35,11 +32,32 @@
 		</scalac>
 	</target>
 
-	<!-- Run -->	
-	<target name="dist" depends="compile">
-		
+	<target name="ParseJSON" depends="compile">
+		<mkdir dir="${dist.dir}"/>
+		<jar destfile="${dist.dir}/ParseJSON.jar" basedir="${build.dir}">
+			<manifest>
+				<attribute name="Main-Class" value="com.stocco.TwitLucene.ParseJSON"/>
+			</manifest>
+			<zipfileset dir="${scala.home}/lib" prefix="lib">
+				<include name="scala-library.jar"/>
+			</zipfileset>
+			<fileset dir="." includes="lib/*.jar"/>
+		</jar>
 	</target>
-	
+
+	<target name="docs" >
+		<mkdir dir="${docs.dir}"   />
+		<scaladoc
+			srcdir="${src.dir}"
+			destdir="${docs.dir}"
+			deprecation="yes" unchecked="yes"
+			windowtitle="TwitLucene Library Documentation"
+			doctitle="&lt;div&gt;TwitLucene 0.1.0&lt;/div&gt;"
+			classpathref="project.classpath">
+			<include name="*.scala"   />
+		</scaladoc>
+	</target>
+
 	<target name="clean">
 		<delete dir="${build.dir}"/>
 		<delete dir="${dist.dir}"/>
