@@ -1,4 +1,4 @@
-package com.stocco.TwitLucene
+package com.gstocco.TwitLucene
 
 object SearchTwitter{
 	

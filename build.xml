@@ -15,11 +15,16 @@
 		<pathelement location="${scala-library.jar}"/>
 	</path>
 
-	<path id="project.classpath">
+	<path id="jar.classpath">
 		<path refid="scala.classpath"/>
-		<pathelement location="${build.dir}"/>
 		<fileset dir="${lib.dir}" includes="**/*.jar" followsymlinks="false"/>
 	</path>
+
+	<path id="project.classpath">
+		<path refid="jar.classpath"/>
+		<pathelement location="${build.dir}"/>
+	</path>
+
 
 	<taskdef resource="scala/tools/ant/antlib.xml">
 		<classpath refid="scala.classpath"/>
@@ -28,10 +33,15 @@
 	<target name="init" depends="clean">
 		<tstamp/>
 		<pathconvert property="mf.classpath" pathsep=" ">
-			<path refid="scala.classpath"/>
-			<fileset dir="${lib.dir}" includes="**/*.jar" followsymlinks="false"/>
+			<path refid="jar.classpath"/>
 			<flattenmapper />
 		</pathconvert>
+		<copy todir="${lib.dir}" flatten="true">
+			<path refid="scala.classpath"/>
+		</copy>
+		<fileset id="jar.lib" dir="${lib.dir}">
+			<include name="**/*.jar"/>
+		</fileset>
 	</target>
 
 	<target name="compile" depends="init">
@@ -49,7 +59,19 @@
 			<attribute name="Class-Path" value="${mf.classpath}" />
 		</manifest>
 		<jar destfile="${dist.dir}/ParseJSON.jar" basedir="${build.dir}" includes="**/*.*" manifest="MANIFEST.MF">
-			<zipfileset src="${scala.classpath}" excludes="META-INF/*"/>
+			<zipgroupfileset refid="jar.lib"/>
+		</jar>
+	</target>
+	
+	<target name="SearchTwitter" depends="compile">
+		<mkdir dir="${dist.dir}"/>
+		<manifest file="MANIFEST.MF">
+			<attribute name="Main-Class" value="com.gstocco.TwitLucene.SearchTwitter"/>
+			<attribute name="Built-Date" value="${TODAY}"/>
+			<attribute name="Class-Path" value="${mf.classpath}" />
+		</manifest>
+		<jar destfile="${dist.dir}/SearchTwitter.jar" basedir="${build.dir}" includes="**/*.*" manifest="MANIFEST.MF">
+			<zipgroupfileset refid="jar.lib"/>
 		</jar>
 	</target>
 
@@ -62,7 +84,7 @@
 			windowtitle="TwitLucene Library Documentation"
 			doctitle="&lt;div&gt;TwitLucene 0.1.0&lt;/div&gt;"
 			classpathref="project.classpath">
-			<include name="*.scala"   />
+			<include name="*.scala"/>
 		</scaladoc>
 	</target>
 

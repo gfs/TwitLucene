@@ -1,4 +1,4 @@
-package com.stocco.TwitLucene
+package com.gstocco.TwitLucene
 
 import org.apache.lucene.analysis.Analyzer
 

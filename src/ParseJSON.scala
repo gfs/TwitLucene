@@ -1,4 +1,4 @@
-package com.stocco.TwitLucene
+package com.gstocco.TwitLucene
 /**
 * Takes a JSON file as input and creates a lucene index named after the file name with "_index" appended.  Uses multiple actors concurrently parsing.
 */
