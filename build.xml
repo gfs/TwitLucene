@@ -25,7 +25,16 @@
 		<classpath refid="scala.classpath"/>
 	</taskdef>
 
-	<target name="compile" depends="clean">
+	<target name="init" depends="clean">
+		<tstamp/>
+		<pathconvert property="mf.classpath" pathsep=" ">
+			<path refid="scala.classpath"/>
+			<fileset dir="${lib.dir}" includes="**/*.jar" followsymlinks="false"/>
+			<flattenmapper />
+		</pathconvert>
+	</target>
+
+	<target name="compile" depends="init">
 		<mkdir dir="${build.dir}"/>
 		<scalac srcdir="${src.dir}" destdir="${build.dir}" classpathref="project.classpath" force="changed">
 			<include name="**/*.scala"/>
@@ -34,14 +43,13 @@
 
 	<target name="ParseJSON" depends="compile">
 		<mkdir dir="${dist.dir}"/>
-		<jar destfile="${dist.dir}/ParseJSON.jar" basedir="${build.dir}">
-			<manifest>
-				<attribute name="Main-Class" value="com.stocco.TwitLucene.ParseJSON"/>
-			</manifest>
-			<zipfileset dir="${scala.home}/lib" prefix="lib">
-				<include name="scala-library.jar"/>
-			</zipfileset>
-			<fileset dir="." includes="lib/*.jar"/>
+		<manifest file="MANIFEST.MF">
+			<attribute name="Main-Class" value="com.stocco.TwitLucene.ParseJSON"/>
+			<attribute name="Built-Date" value="${TODAY}"/>
+			<attribute name="Class-Path" value="${mf.classpath}" />
+		</manifest>
+		<jar destfile="${dist.dir}/ParseJSON.jar" basedir="${build.dir}" includes="**/*.*" manifest="MANIFEST.MF">
+			<zipfileset src="${scala.classpath}" excludes="META-INF/*"/>
 		</jar>
 	</target>
 
