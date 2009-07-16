@@ -3,8 +3,9 @@ package com.gstocco.TwitLucene
 import org.apache.lucene.analysis.Analyzer
 
 class TweetAnalyzer extends Analyzer{
-	import org.apache.lucene.analysis.{StopFilter,CharTokenizer,TokenStream}
 	import java.io.Reader
+	
+	import org.apache.lucene.analysis.{StopFilter,CharTokenizer,TokenStream}
 	
 	val STOP_WORDS = Array("0", "1", "2", "3", "4", "5", "6", "7", "8",
     "9", "000", "$",

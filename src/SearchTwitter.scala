@@ -2,18 +2,18 @@ package com.gstocco.TwitLucene
 
 object SearchTwitter{
 	
-	import org.joda.time.DateTime
-	import org.apache.lucene.search.{IndexSearcher,TopDocs,RangeFilter,Query,ConstantScoreRangeQuery,HitIterator,Hits,Hit,TopDocCollector}
-	import org.apache.lucene.document.Document
-	import org.apache.lucene.queryParser.QueryParser
-	import org.apache.lucene.index.IndexReader
 	import org.apache.lucene.analysis.standard.StandardAnalyzer
-	import org.apache.lucene.analysis.Analyzer
-	import org.apache.lucene.analysis.KeywordAnalyzer
+	import org.apache.lucene.analysis.{Analyzer,KeywordAnalyzer}
+	import org.apache.lucene.document.Document
+	import org.apache.lucene.index.IndexReader
+	import org.apache.lucene.queryParser.QueryParser
+	import org.apache.lucene.search.{IndexSearcher,TopDocs,RangeFilter,Query,ConstantScoreRangeQuery,HitIterator,Hits,Hit,TopDocCollector}
+
+	import org.joda.time.DateTime
+
 	import scala.actors._
 	import scala.actors.Actor._
 	import scala.collection.mutable.HashMap
-	import org.apache.lucene.search.Hits
 	
 	val index = "theFullIndex"
 	

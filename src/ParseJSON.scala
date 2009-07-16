@@ -3,19 +3,24 @@ package com.gstocco.TwitLucene
 * Takes a JSON file as input and creates a lucene index named after the file name with "_index" appended.  Uses multiple actors concurrently parsing.
 */
 object ParseJSON {
-	import org.codehaus.jackson._
-	import scala.io.Source
-	import scala.actors._
-	import scala.actors.Actor._
 	import java.io.File
 	import java.util.Date
+	
 	import org.apache.lucene.analysis.Analyzer
 	import org.apache.lucene.document._
 	import org.apache.lucene.index.{IndexWriter,Term,IndexReader}
 	import org.apache.lucene.search.{Searcher,Query,TermQuery,IndexSearcher}
 	import org.apache.lucene.queryParser.QueryParser;
+	
+	import org.codehaus.jackson._
+		
 	import org.joda.time.DateTime
 	import org.joda.time.format.DateTimeFormat
+	
+	import scala.io.Source
+	import scala.actors._
+	import scala.actors.Actor._
+	
 	
 	/**
 	* Constant. 5 actors seems to be the current magic number as of Scala 2.7.5.final.  Any more actors and throughput drops.
