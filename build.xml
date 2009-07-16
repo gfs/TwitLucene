@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="ScalaTest" default="build" basedir=".">
+	<description> simple test to build Scala project </description>
+
+	<!-- Common paths -->
+	<property name="src.dir" value="${basedir}/src" />
+	<property name="build.dir" value="${basedir}/build"/>
+	<property name="lib.dir" value="${basedir}/lib" />
+	<property name="scala.home" value="/opt/local/share/scala" />
+	<!-- Scala CLASSPATH -->
+	<property name="scala-compiler.jar" value="${scala.home}/lib/scala-compiler.jar"/>
+	<property name="scala-library.jar" value="${scala.home}/lib/scala-library.jar"/>
+	<path id="scala.classpath">
+		<pathelement location="${scala-compiler.jar}"/>
+		<pathelement location="${scala-library.jar}"/>
+	</path>
+
+	<!-- Project CLASSPATH -->
+	<path id="project.classpath">
+		<path refid="scala.classpath"/>
+		<pathelement location="${build.dir}"/>
+		<fileset dir="${lib.dir}" includes="**/*.jar" followsymlinks="false"/>
+	</path>
+
+	<!-- Scala compiler task -->
+	<taskdef resource="scala/tools/ant/antlib.xml">
+		<classpath refid="scala.classpath"/>
+	</taskdef>
+
+	<!-- Compiles sources by using "scalac" command. -->
+	<target name="compile" depends="clean">
+		<mkdir dir="${build.dir}"/>
+		<scalac srcdir="${src.dir}" destdir="${build.dir}" classpathref="project.classpath" force="changed">
+			<include name="**/*.scala"/>
+		</scalac>
+	</target>
+
+	<!-- Run -->	
+	<target name="dist" depends="compile">
+		
+	</target>
+	
+	<target name="clean">
+		<delete dir="${build.dir}"/>
+		<delete dir="${dist.dir}"/>
+	</target>
+</project>
