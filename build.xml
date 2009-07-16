@@ -29,19 +29,20 @@
 	<taskdef resource="scala/tools/ant/antlib.xml">
 		<classpath refid="scala.classpath"/>
 	</taskdef>
+	
+	<tstamp/>
+	<pathconvert property="mf.classpath" pathsep=" "><!-- Create path for manifest -->
+		<path refid="jar.classpath"/>
+		<flattenmapper />
+	</pathconvert>
+	
+	<target name="clean">
+		<delete dir="${build.dir}"/>
+		<delete dir="${dist.dir}"/>
+	</target>
 
-	<target name="init" depends="clean">
-		<tstamp/>
-		<pathconvert property="mf.classpath" pathsep=" ">
-			<path refid="jar.classpath"/>
-			<flattenmapper />
-		</pathconvert>
-		<copy todir="${lib.dir}" flatten="true">
-			<path refid="scala.classpath"/>
-		</copy>
-		<fileset id="jar.lib" dir="${lib.dir}">
-			<include name="**/*.jar"/>
-		</fileset>
+	<target name="init">
+		<echo>Doing nothing... placeholder.</echo>
 	</target>
 
 	<target name="compile" depends="init">
@@ -51,7 +52,19 @@
 		</scalac>
 	</target>
 
-	<target name="ParseJSON" depends="compile">
+	<target name="prepJar" depends="compile">
+		<echo>Copying your scala-library.jar to the lib folder if its not already there.</echo>
+		<copy todir="${lib.dir}" flatten="true"><!-- Copy the scala library jar to the lib folder to be zipped into the jar file -->
+			<path id="scala.lib.path">
+				<pathelement location="${scala-library.jar}"/>
+			</path>
+		</copy>
+		<fileset id="jar.lib" dir="${lib.dir}">
+			<include name="**/*.jar"/>
+		</fileset>
+	</target>
+
+	<target name="ParseJSON" depends="prepJar">
 		<mkdir dir="${dist.dir}"/>
 		<manifest file="MANIFEST.MF">
 			<attribute name="Main-Class" value="com.stocco.TwitLucene.ParseJSON"/>
@@ -63,7 +76,7 @@
 		</jar>
 	</target>
 	
-	<target name="SearchTwitter" depends="compile">
+	<target name="SearchTwitter" depends="prepJar">
 		<mkdir dir="${dist.dir}"/>
 		<manifest file="MANIFEST.MF">
 			<attribute name="Main-Class" value="com.gstocco.TwitLucene.SearchTwitter"/>
@@ -74,8 +87,20 @@
 			<zipgroupfileset refid="jar.lib"/>
 		</jar>
 	</target>
+	
+	<target name="HttpServer" depends="prepJar">
+		<mkdir dir="${dist.dir}"/>
+		<manifest file="MANIFEST.MF">
+			<attribute name="Main-Class" value="com.gstocco.TwitLucene.HttpServer"/>
+			<attribute name="Built-Date" value="${TODAY}"/>
+			<attribute name="Class-Path" value="${mf.classpath}" />
+		</manifest>
+		<jar destfile="${dist.dir}/HttpServer.jar" basedir="${build.dir}" includes="**/*.*" manifest="MANIFEST.MF">
+			<zipgroupfileset refid="jar.lib"/>
+		</jar>
+	</target>
 
-	<target name="docs" >
+	<target name="docs">
 		<mkdir dir="${docs.dir}"   />
 		<scaladoc
 			srcdir="${src.dir}"
@@ -88,8 +113,4 @@
 		</scaladoc>
 	</target>
 
-	<target name="clean">
-		<delete dir="${build.dir}"/>
-		<delete dir="${dist.dir}"/>
-	</target>
 </project>
