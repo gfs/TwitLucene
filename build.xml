@@ -100,6 +100,9 @@
 		</jar>
 	</target>
 
+	<target name="dist" depends="HttpServer">
+	</target>
+
 	<target name="docs">
 		<mkdir dir="${docs.dir}"   />
 		<scaladoc
