@@ -26,6 +26,7 @@ object ParseJSON {
 	* Constant. 5 actors seems to be the current magic number as of Scala 2.7.5.final.  Any more actors and throughput drops.
 	*/
 	val ACTORS = 5
+	var debug=false
 	/**
 	* Constant. Sets how often the program will commit progress to the index. Set to every 10,000 records.
 	*/
@@ -34,7 +35,13 @@ object ParseJSON {
 	
 	def main(args: Array[String]){
 		val date = new Date()
-		val factory: JsonFactory = new JsonFactory();		
+		val factory: JsonFactory = new JsonFactory()
+		if(args.length == 0){
+			println("Requires a filename to readfrom.  TODO: This should try to read from stdin")
+		} else if(args.length == 2){
+			if(args(1)=="-d")
+				debug=true
+		}
 		val lines = Source.fromFile(args(0),"UTF-8").getLines
 
 		val writer = new IndexWriter(args(0)+"_index", new TweetAnalyzer(), true, IndexWriter.MaxFieldLength.LIMITED)
@@ -55,7 +62,8 @@ object ParseJSON {
 					case ("Gimme",actor:Actor) =>
 						i=i+1
 						if(i%COMMIT_LEVEL==0){
-							print(".")
+							if(debug)
+								print(".")
 							writer.commit
 						}
 						if(lines.hasNext){
@@ -131,11 +139,10 @@ object ParseJSON {
 							}
 							writer.addDocument(doc)
 						} catch {
-								case e: NullPointerException => 
 								case e: Exception =>
-									e.printStackTrace
+									// e.printStackTrace
+									println("Bad Data? This line threw an exception:"+x)
 						}
-					case null =>
 				}
 			}
 		}

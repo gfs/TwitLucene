@@ -41,13 +41,9 @@
 		<delete dir="${dist.dir}"/>
 	</target>
 
-	<target name="init">
-		<echo>Doing nothing... placeholder.</echo>
-	</target>
-
-	<target name="compile" depends="init">
+	<target name="compile">
 		<mkdir dir="${build.dir}"/>
-		<scalac srcdir="${src.dir}" destdir="${build.dir}" classpathref="project.classpath" force="changed">
+		<scalac srcdir="${src.dir}" destdir="${build.dir}" classpathref="project.classpath" force="changed" addparams="-optimise">
 			<include name="**/*.scala"/>
 		</scalac>
 	</target>
@@ -67,7 +63,7 @@
 	<target name="ParseJSON" depends="prepJar">
 		<mkdir dir="${dist.dir}"/>
 		<manifest file="MANIFEST.MF">
-			<attribute name="Main-Class" value="com.stocco.TwitLucene.ParseJSON"/>
+			<attribute name="Main-Class" value="com.gstocco.TwitLucene.ParseJSON"/>
 			<attribute name="Built-Date" value="${TODAY}"/>
 			<attribute name="Class-Path" value="${mf.classpath}" />
 		</manifest>
@@ -100,7 +96,11 @@
 		</jar>
 	</target>
 
-	<target name="dist" depends="HttpServer">
+	<target name="dist">
+		<antcall target="HttpServer"/>
+		<antcall target="ParseJSON"/>
+		<antcall target="SearchTwitter"/>
+		<antcall target="docs"/>
 	</target>
 
 	<target name="docs">
