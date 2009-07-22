@@ -5,7 +5,7 @@ import org.apache.lucene.analysis.Analyzer
 class TweetAnalyzer extends Analyzer{
 	import java.io.Reader
 	
-	import org.apache.lucene.analysis.{StopFilter,CharTokenizer,TokenStream}
+	import org.apache.lucene.analysis.{StopFilter,CharTokenizer,TokenStream,LowerCaseFilter}
 	
 	val STOP_WORDS = Array("0", "1", "2", "3", "4", "5", "6", "7", "8",
     "9", "000", "$",
@@ -16,7 +16,7 @@ class TweetAnalyzer extends Analyzer{
 	val STOP_SET = StopFilter.makeStopSet(STOP_WORDS)
 	
 	def tokenStream(fieldName:String, reader:Reader):TokenStream={
-		return new StopFilter(new TweetTokenizer(reader),STOP_SET)
+		return new LowerCaseFilter(new StopFilter(new TweetTokenizer(reader),STOP_SET))
 	}
 	
 	class TweetTokenizer(reader:Reader) extends CharTokenizer(reader:Reader){
