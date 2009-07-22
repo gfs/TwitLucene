@@ -48,7 +48,7 @@ object HttpServer{
 		val defaultcreds:UsernamePasswordCredentials = new UsernamePasswordCredentials("user", "password")
 		client.getState.setCredentials(new AuthScope("stream.twitter.com", 80, AuthScope.ANY_REALM), defaultcreds)
 		client.getParams.setAuthenticationPreemptive(true)
-		val httpget:GetMethod = new GetMethod("http://stream.twitter.com/spritzer.json")
+		val httpget:GetMethod = new GetMethod("http://stream.twitter.com/gardenhose.json")
 		try {
 			client.executeMethod(httpget)
 			var reader:BufferedReader = new BufferedReader(new InputStreamReader(httpget.getResponseBodyAsStream,"UTF-8"))
@@ -128,7 +128,7 @@ object HttpServer{
 				Thread.sleep(1000)
 				if (mid.compareTo(new DateTime)<=0){
 					dt=new DateTime
-					setWriter(new PrintWriter(new BufferedWriter(new FileWriter("type."+fmt.print(dt)))))
+					setWriter(new PrintWriter(new BufferedWriter(new FileWriter(filePrepend+"."+fmt.print(dt)))))
 					mid = mid.plusDays(1)
 				}
 			}
