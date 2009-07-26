@@ -50,13 +50,13 @@ object ParseJSON {
 			} else if(args.length >= 2){
 				args(0) match{
 					case "stream" => println("Reading from "+args(1)+"."+fmt.print(dt)+" in the current directory.")
-						file=fmt.print(dt)
-						prepend=args(1)+"."
-						perpetual=true
+					file=fmt.print(dt)
+					prepend=args(1)+"."
+					perpetual=true
 					case "single" => println("Reading from "+args(1)+".")
-						file=args(1)
-						prepend=""
-						perpetual=false
+					file=args(1)
+					prepend=""
+					perpetual=false
 				}
 				if(args.length == 3){
 					if(args(2)=="-d")
@@ -91,6 +91,10 @@ object ParseJSON {
 										writer.commit
 									}
 								}
+								if(line.substring(line.length-1)!="}"){
+									Thread.sleep(10000)
+									line=line+bufReader.readLine
+								}
 								actor ! line
 							}
 							else{
@@ -118,9 +122,9 @@ object ParseJSON {
 								writer.close
 								val date2 = new Date
 								println("Time elapsed: "+(date2.getTime - date.getTime)+" ms")
+								System.exit(0)
 							}
 						}
-
 					}
 				}
 			}
@@ -161,43 +165,45 @@ object ParseJSON {
 									case "id" =>
 									doc.add(new Field("id", jp.getText(), Field.Store.YES, Field.Index.NOT_ANALYZED))
 									case "text" =>
-									doc.add(new Field("text", jp.getText(), Field.Store.YES, Field.Index.ANALYZED))
+									doc.add(new Field("text", jp.getText(), Field.Store.YES, Field.Index.ANALYZED,Field.TermVector.YES))
 									if(jp.getText.indexOf('?')!=(-1)){
 										doc.add(new Field("isQuestion","t",Field.Store.YES, Field.Index.NOT_ANALYZED))
-										} else{
-											doc.add(new Field("isQuestion","f",Field.Store.YES, Field.Index.NOT_ANALYZED))
-										}
-										if(jp.getText.indexOf('!')!=(-1)){
-											doc.add(new Field("isBang","t",Field.Store.YES, Field.Index.NOT_ANALYZED))
-											} else{
-												doc.add(new Field("isBang","f",Field.Store.YES, Field.Index.NOT_ANALYZED))
-											}
-											if(jp.getText.indexOf('#')!=(-1)){
-												doc.add(new Field("isHash","t",Field.Store.YES, Field.Index.NOT_ANALYZED))
-												} else{
-													doc.add(new Field("isHash","f",Field.Store.YES, Field.Index.NOT_ANALYZED))
-												}
-												case "in_reply_to_user_id" =>
-												doc.add(new Field("in_reply_to_user_id", jp.getText(), Field.Store.YES, Field.Index.NOT_ANALYZED))
-												case "in_reply_to_screen_name" =>
-												doc.add(new Field("in_reply_to_screen_name", jp.getText(), Field.Store.YES, Field.Index.NOT_ANALYZED))
-												case "created_at" =>
-												val time: DateTime = try { dateTimeFmt.parseDateTime(jp.getText())}
-												catch { case _ => throw new Exception("Could not parse time.")}
-												doc.add(new Field("created_at", time.toString, Field.Store.YES, Field.Index.NOT_ANALYZED))
-												case "in_reply_to_status_id" =>
-												doc.add(new Field("in_reply_to_status_id", jp.getText(), Field.Store.YES, Field.Index.NOT_ANALYZED))
-												case _ =>
-											}								
-										}
-										writer.addDocument(doc)
-										} catch {
-											case e: Exception =>
-											// e.printStackTrace
-											println("Bad Data? This line threw an exception:"+x)
-										}
+									} 
+									else{
+										doc.add(new Field("isQuestion","f",Field.Store.YES, Field.Index.NOT_ANALYZED))
 									}
-								}
+									if(jp.getText.indexOf('!')!=(-1)){
+										doc.add(new Field("isBang","t",Field.Store.YES, Field.Index.NOT_ANALYZED))
+									} 
+									else{
+										doc.add(new Field("isBang","f",Field.Store.YES, Field.Index.NOT_ANALYZED))
+									}
+									if(jp.getText.indexOf('#')!=(-1)){
+										doc.add(new Field("isHash","t",Field.Store.YES, Field.Index.NOT_ANALYZED))
+									}
+									else{
+										doc.add(new Field("isHash","f",Field.Store.YES, Field.Index.NOT_ANALYZED))
+									}
+									case "in_reply_to_user_id" =>
+									doc.add(new Field("in_reply_to_user_id", jp.getText(), Field.Store.YES, Field.Index.NOT_ANALYZED))
+									case "in_reply_to_screen_name" =>
+									doc.add(new Field("in_reply_to_screen_name", jp.getText(), Field.Store.YES, Field.Index.NOT_ANALYZED))
+									case "created_at" =>
+									val time: DateTime = try { dateTimeFmt.parseDateTime(jp.getText())}
+									catch { case _ => throw new Exception("Could not parse time.")}
+									doc.add(new Field("created_at", time.toString, Field.Store.YES, Field.Index.NOT_ANALYZED))
+									case "in_reply_to_status_id" =>
+									doc.add(new Field("in_reply_to_status_id", jp.getText(), Field.Store.YES, Field.Index.NOT_ANALYZED))
+									case _ =>
+								}								
+							}
+							writer.addDocument(doc)
+							} catch {
+								case e: Exception =>
+								println("Bad Data? This line threw an exception:"+x)
 							}
 						}
 					}
+				}
+			}
+		}
