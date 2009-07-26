@@ -43,7 +43,7 @@
 
 	<target name="compile">
 		<mkdir dir="${build.dir}"/>
-		<scalac srcdir="${src.dir}" destdir="${build.dir}" classpathref="project.classpath" force="changed" addparams="-optimise">
+		<scalac srcdir="${src.dir}" destdir="${build.dir}" classpathref="project.classpath" force="changed" >
 			<include name="**/*.scala"/>
 		</scalac>
 	</target>
