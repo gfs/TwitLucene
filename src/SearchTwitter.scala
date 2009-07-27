@@ -67,12 +67,23 @@ object SearchTwitter{
 			collector = new TopDocCollector(collector.topDocs().totalHits)
 			searcher.search(query,collector)
 			val hits = collector.topDocs().scoreDocs
+			val hash = new HashMap[String, (int, String)]
 			for(i <- 0 to hits.length-1){
 				val docId = hits(i).doc
 				val d:Document = searcher.doc(docId)
 				val user = d.getField("user_id").stringValue
 				val twitId = d.getField("id").stringValue
-				println(user+","+twitId)
+				if(hash.contains(user)){
+					hash.update(user,( (hash.get(user).get._1) + 1 , (hash.get(user).get._2) +","+twitId ) )
+				} 
+				else{
+					hash.put(user,(1,twitId))
+				}
+			}
+			val alist = hash.toList
+			val sortedList:List[(String,(int,String))] = alist.sort((x,y) => x._2._1 > y._2._1)
+			sortedList.foreach{(elem) =>
+				println(elem._1+"\t"+elem._2._1+"\t"+elem._2._2)
 			}
 		}
 
