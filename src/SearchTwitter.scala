@@ -6,9 +6,13 @@ object SearchTwitter{
 	import org.apache.lucene.analysis.standard.StandardAnalyzer
 	import org.apache.lucene.analysis.{Analyzer,KeywordAnalyzer}
 	import org.apache.lucene.document.Document
+	import org.apache.lucene.index.IndexReader;
+	import org.apache.lucene.index.Term;
+	import org.apache.lucene.index.TermEnum;
 	import org.apache.lucene.index.IndexReader
 	import org.apache.lucene.queryParser.QueryParser
 	import org.apache.lucene.search.{IndexSearcher,TopDocs,RangeFilter,Query,ConstantScoreRangeQuery,HitIterator,Hits,Hit,TopDocCollector}
+	import org.apache.lucene.util.PriorityQueue
 
 	import org.joda.time.DateTime
 
@@ -46,117 +50,224 @@ object SearchTwitter{
 					getTopWordsByUser(userFile,stopFile)
 				case "userPairTopics" =>
 					val userFile=args(1)
-					val cutoff=args(2)
-					getUserPairTopics(userFile,cutoff)
+					val stopFile=args(2)
+					val cutoff=args(3)
+					getUserPairTopics(userFile,stopFile,Integer.parseInt(cutoff))
+				case "getStopList" =>
+					val cutoff=args(1)
+					getStopList(Integer.parseInt(cutoff))
 				case "help" =>
 					printHelp
 			}
-			} catch{
-				case e:Exception =>
-					e.printStackTrace
-					printHelp
+		} catch{
+			case e:Exception =>
+				e.printStackTrace
+				printHelp
+		}
+	}
+
+	def printHelp{
+		println("Run options: {hour term begin end} | {topChatters term numChatters} | {twitUserIds term} | {topWordsByTwit twitFile stopFile} | {topWordsByUser userFile stopFile} | {userPairTopics userFile stopFile cutoff} | {getStopList cutoff} | {help}")
+	}
+
+	def getTwitAndUserIdsForWord(term:String){
+		val searcher:IndexSearcher = new IndexSearcher(IndexReader.open(index))
+		val parser: QueryParser = new QueryParser("text",new TweetAnalyzer())
+		val query:Query = parser.parse(term)
+		var collector:TopDocCollector = new TopDocCollector(1)
+		searcher.search(query,collector)
+		collector = new TopDocCollector(collector.topDocs().totalHits)
+		searcher.search(query,collector)
+		val hits = collector.topDocs().scoreDocs
+		val hash = new HashMap[String, (int, String)]
+		for(i <- 0 to hits.length-1){
+			val docId = hits(i).doc
+			val d:Document = searcher.doc(docId)
+			val user = d.getField("user_id").stringValue
+			val twitId = d.getField("id").stringValue
+			if(hash.contains(user)){
+				hash.update(user,( (hash.get(user).get._1) + 1 , (hash.get(user).get._2) +","+twitId ) )
+			} 
+			else{
+				hash.put(user,(1,twitId))
 			}
 		}
-
-		def printHelp{
-			println("Run options: {hour term begin end} | {topChatters term numChatters} | {twitUserIds term} | {topWordsByTwit twitFile stopFile} | {help}")
+		val alist = hash.toList
+		val sortedList:List[(String,(int,String))] = alist.sort((x,y) => x._2._1 > y._2._1)
+		sortedList.foreach{(elem) =>
+			println(elem._1+"\t"+elem._2._1+"\t"+elem._2._2)
 		}
+	}
 
-		def getTwitAndUserIdsForWord(term:String){
-			val searcher:IndexSearcher = new IndexSearcher(IndexReader.open(index))
-			val parser: QueryParser = new QueryParser("text",new TweetAnalyzer())
-			val query:Query = parser.parse(term)
+	def getStopList(cutoff:Int){
+		// val searcher:IndexSearcher = new IndexSearcher(IndexReader.open(index))
+		// val parser: QueryParser = new QueryParser("created_at",new KeywordAnalyzer())
+		// val query:Query = parser.parse("[0000-00-00T00:00:00.000-00:00 TO 9999-99-99T99:99:99.999-99:99]")
+		// var collector:TopDocCollector = new TopDocCollector(1)
+		// searcher.search(query,collector)
+		// collector = new TopDocCollector(collector.topDocs().totalHits)
+		// searcher.search(query,collector)
+		// val hits = collector.topDocs().scoreDocs
+		// val hash = new HashMap[String,Int]
+		// for(i<- 0 to hits.length-1){
+		// 	val docId = hits(i).doc
+		// 	val d:Document = searcher.doc(docId)
+		// 	val value = d.getField("text").stringValue
+		// 	val st = new StringTokenizer(value,"!.,;:'\"[]{}\\|+=_-)(*#&^%$@!`~? ")
+		// 	while (st.hasMoreTokens()) {
+		// 		val temp = st.nextToken
+		// 		if(hash.contains(temp)){
+		// 			hash.update(temp,hash.get(temp).get+1)
+		// 		} 
+		// 		else{
+		// 			hash.put(temp,1)
+		// 		}
+		// 	}
+		// }
+		// val alist = hash.toList
+		// val sortedList:List[(String,int)] = alist.sort((x,y) => x._2 > y._2)
+		// for(i<- 0 to cutoff-1){
+		// 	println(sortedList(i)._1+","+sortedList(i)._2)
+		// }
+		val reader:IndexReader = IndexReader.open(index)
+		val terms:TermEnum = reader.terms
+		val hash = new HashMap[String,int]
+		var minFreq = 0
+		while(terms.next){
+			val field=terms.term.field
+			if(field=="text"){
+				if(terms.docFreq > minFreq){
+					hash.put(terms.term.text,terms.docFreq)
+				}
+			}
+		}
+		val alist = hash.toList
+		val sortedList = alist.sort((x,y) => x._2 > y._2)
+		for(i<- 0 to cutoff){
+			println(sortedList(i)._1)
+		}
+		reader.close
+	}
+
+	def getUserPairTopics(userFile:String,stopFile:String,cutoff:Int){
+		val searcher:IndexSearcher = new IndexSearcher(IndexReader.open(index))
+		val parser: QueryParser = new QueryParser("user_id",new KeywordAnalyzer())
+		val hash = new HashMap[(String,String,String,String),List[(String,Int)]]
+		var lines = Source.fromFile(userFile).getLines
+		while(lines.hasNext){//foreach pair of users
+			try{
+				val line = lines.next.trim
+				val users=line.split(",")
+				val query:Query = parser.parse("(+user_id:"+users(0)+" +in_reply_to_user_id:"+users(1)+") OR (+user_id:"+users(1)+" +in_reply_to_user_id:"+users(0)+")")
+				val query:Query = parser.parse("(+user_id:"+users(0)+" +in_reply_to_user_id:"+users(1)+") OR (+user_id:"+users(1)+" +in_reply_to_user_id:"+users(0)+")")
+				var collector:TopDocCollector = new TopDocCollector(1)
+				searcher.search(query,collector)
+				collector = new TopDocCollector(collector.topDocs().totalHits)
+				searcher.search(query,collector)
+				val hits = collector.topDocs().scoreDocs
+				val pairHash = new HashMap[String, int]
+				for(i<- 0 to hits.length-1){
+					val docId = hits(i).doc
+					val d:Document = searcher.doc(docId)
+					val value = d.getField("text").stringValue
+					val st = new StringTokenizer(value,"!.,;:'\"[]{}\\|+=_-)(*&^%$@!`~? ")
+					while (st.hasMoreTokens()) {
+						val temp = st.nextToken
+						if(pairHash.contains(temp)){
+							pairHash.update(temp,pairHash.get(temp).get+1)
+						} 
+						else{
+							pairHash.put(temp,1)
+						}
+					}
+				}
+				val pairList = pairHash.toList
+				val pairSortedList:List[(String,int)] = pairList.sort((x,y) => x._2 > y._2)
+				hash.put((users(0),users(1)),pairSortedList)
+			}
+			catch{
+				case e:Exception =>
+					e.printStackTrace
+			}
+		}
+		var stopWordList = List[String]()
+		var lines2 = Source.fromFile(stopFile).getLines
+		while(lines2.hasNext){
+			stopWordList ::= lines2.next.trim.toLowerCase
+		}
+		val tehList = hash.toList
+		for (i <- 0 to tehList.length-1){
+			print(tehList(i)._1._1+"\t"+tehList(i)._1._2+"\t")
+			val list=tehList(i)._2
+			for(j <- 0 to list.length-1){
+				if(list(j)._2>=cutoff){
+					if(!stopWordList.contains(list(j)._1.toLowerCase))
+						print(list(j)._1.trim+" "+list(j)._2+",")
+				}
+			}
+			print("\n")
+		}
+	}
+
+	def getTopWordsByTwit(twitIdFile:String,stopWordFile:String){
+		val searcher:IndexSearcher = new IndexSearcher(IndexReader.open(index))
+		val parser: QueryParser = new QueryParser("id",new KeywordAnalyzer())
+		val hash = new HashMap[String, int]
+		var lines = Source.fromFile(twitIdFile).getLines
+		while(lines.hasNext){
+			try{
+				val line = lines.next.trim
+				val query:Query = parser.parse("id:"+line)
+				val collector:TopDocCollector = new TopDocCollector(1)
+				searcher.search(query,collector)
+				val hits = collector.topDocs().scoreDocs
+				val docId = hits(0).doc
+				val d:Document = searcher.doc(docId)
+				val value = d.getField("text").stringValue
+				val st = new StringTokenizer(value,"!.,;:'\"[]{}\\|+=_-)(*&^%$#@!`~? ")
+				while (st.hasMoreTokens()) {
+					val temp = st.nextToken
+					if(hash.contains(temp)){
+						hash.update(temp,hash.get(temp).get+1)
+					} 
+					else{
+						hash.put(temp,1)
+					}
+				}
+			}
+			catch{
+				case e:Exception => e.printStackTrace
+			}
+		}
+		var stopWordList = List[String]()
+		lines = Source.fromFile(stopWordFile).getLines
+		while(lines.hasNext){
+			stopWordList ::= lines.next
+		}
+		val alist = hash.toList
+		val sortedList:List[(String,int)] = alist.sort((x,y) => x._2 > y._2)
+		for (i <- 0 to sortedList.length-1){
+			if(!stopWordList.contains(sortedList(i)._1))
+			println(sortedList(i)._1+","+sortedList(i)._2)
+		}
+	}
+
+	def getTopWordsByUser(userIdFile:String,stopWordFile:String){
+		val searcher:IndexSearcher = new IndexSearcher(IndexReader.open(index))
+		val parser: QueryParser = new QueryParser("user_id",new KeywordAnalyzer())
+		val hash = new HashMap[String, int]
+		var lines = Source.fromFile(userIdFile).getLines
+		while(lines.hasNext){
+			val line = lines.next.trim
+			val query:Query = parser.parse(line)
 			var collector:TopDocCollector = new TopDocCollector(1)
 			searcher.search(query,collector)
 			collector = new TopDocCollector(collector.topDocs().totalHits)
 			searcher.search(query,collector)
 			val hits = collector.topDocs().scoreDocs
-			val hash = new HashMap[String, (int, String)]
 			for(i <- 0 to hits.length-1){
-				val docId = hits(i).doc
-				val d:Document = searcher.doc(docId)
-				val user = d.getField("user_id").stringValue
-				val twitId = d.getField("id").stringValue
-				if(hash.contains(user)){
-					hash.update(user,( (hash.get(user).get._1) + 1 , (hash.get(user).get._2) +","+twitId ) )
-				} 
-				else{
-					hash.put(user,(1,twitId))
-				}
-			}
-			val alist = hash.toList
-			val sortedList:List[(String,(int,String))] = alist.sort((x,y) => x._2._1 > y._2._1)
-			sortedList.foreach{(elem) =>
-				println(elem._1+"\t"+elem._2._1+"\t"+elem._2._2)
-			}
-		}
-
-		def getUserPairTopics(userFile:String,cutoff:Int){
-			val searcher:IndexSearcher = new IndexSearcher(IndexReader.open(index))
-			val parser: QueryParser = new QueryParser("user_id",new KeywordAnalyzer())
-			val hash = new HashMap[(String,String),List[(String,Int)]]
-			var lines = Source.fromFile(twitIdFile).getLines
-			while(lines.hasNext){//foreach pair of users
 				try{
-					val line = lines.next.trim
-					val users=line.split(",")
-					val query:Query = parser.parse("(+user_id:"+users(0)+" +in_reply_to_user_id:"+users(1)+") OR (+user_id:"+users(1)+" +in_reply_to_user_id:"+users(0)+")")
-					var collector:TopDocCollector = new TopDocCollector(1)
-					searcher.search(query,collector)
-					collector = new TopDocCollector(collector.topDocs().totalHits)
-					searcher.search(query,collector)
-					val hits = collector.topDocs().scoreDocs
-					val pairHash = new HashMap[String, int]
-					for(i<- 0 to hits.length()-1){
-						val docId = hits(i).doc
-						val d:Document = searcher.doc(docId)
-						val value = d.getField("text").stringValue
-						val st = new StringTokenizer(value,"!.,;:'\"[]{}\\|+=_-)(*&^%$@!`~? ")
-						while (st.hasMoreTokens()) {
-							val temp = st.nextToken
-							if(hash.contains(temp)){
-								hash.update(temp,hash.get(temp).get+1)
-							} 
-							else{
-								hash.put(temp,1)
-							}
-						}
-					}
-					val pairList = pairHash.toList
-					val pairSortedList:List[(String,int)] = pairList.sort((x,y) => x._2 > y._2)
-					hash.put((users(0),users(1)),pairSortedList)
-				}
-				catch{
-					case _ =>
-						e.printStackTrace
-				}
-			}
-			val tehList = hash.toList
-			for (i <- 0 to tehList.length-1){
-				print(tehList(i)._1._1+"\t"+tehList(i)._1._2+"\t")
-				val list=tehList(i)._2
-				for(j <- 0 to list.length-1){
-					if(list(j)._2>cutoff){
-						print(list(j)._1+"."+list(j)._2)
-					}
-				}
-				print("\n")
-			}
-		}
-
-		def getTopWordsByTwit(twitIdFile:String,stopWordFile:String){
-			val searcher:IndexSearcher = new IndexSearcher(IndexReader.open(index))
-			val parser: QueryParser = new QueryParser("id",new KeywordAnalyzer())
-			val hash = new HashMap[String, int]
-			var lines = Source.fromFile(twitIdFile).getLines
-			while(lines.hasNext){
-				try{
-					val line = lines.next.trim
-					val query:Query = parser.parse("id:"+line)
-					val collector:TopDocCollector = new TopDocCollector(1)
-					searcher.search(query,collector)
-					val hits = collector.topDocs().scoreDocs
-					val docId = hits(0).doc
+					val docId = hits(i).doc
 					val d:Document = searcher.doc(docId)
 					val value = d.getField("text").stringValue
 					val st = new StringTokenizer(value,"!.,;:'\"[]{}\\|+=_-)(*&^%$#@!`~? ")
@@ -174,144 +285,99 @@ object SearchTwitter{
 					case e:Exception => e.printStackTrace
 				}
 			}
-			var stopWordList = List[String]()
-			lines = Source.fromFile(stopWordFile).getLines
-			while(lines.hasNext){
-				stopWordList ::= lines.next
-			}
-			val alist = hash.toList
-			val sortedList:List[(String,int)] = alist.sort((x,y) => x._2 > y._2)
-			for (i <- 0 to sortedList.length-1){
-				if(!stopWordList.contains(sortedList(i)._1))
-				println(sortedList(i)._1+","+sortedList(i)._2)
+		}
+		var stopWordList = List[String]()
+		lines = Source.fromFile(stopWordFile).getLines
+		while(lines.hasNext){
+			stopWordList ::= lines.next
+		}
+		val alist = hash.toList
+		val sortedList:List[(String,int)] = alist.sort((x,y) => x._2 > y._2)
+		for (i <- 0 to sortedList.length-1){
+			if(!stopWordList.contains(sortedList(i)._1))
+			println(sortedList(i)._1+","+sortedList(i)._2)
+		}
+	}
+
+	def getTopChatters(term:String,numChatters:Int){
+		val searcher:IndexSearcher = new IndexSearcher(IndexReader.open(index))
+		val parser: QueryParser = new QueryParser("location",new TweetAnalyzer())
+		val query:Query = parser.parse(term)
+		val collector:TopDocCollector = new TopDocCollector(20000000)
+		searcher.search(query,collector)
+		val hits = collector.topDocs().scoreDocs
+		val hash = new HashMap[int, int]
+		for(i <- 0 to hits.length-1){
+			val docId = hits(i).doc
+			val d:Document = searcher.doc(docId)
+			val value = d.getField("user_id").stringValue
+			if(hash.contains(value.toInt)){
+				val num:Int = hash.get(value.toInt).get
+				hash.update(value.toInt,num+1)
+			} else{
+				hash.put(value.toInt,1)
 			}
 		}
+		val alist = hash.toList
+		val sortedList:List[(int,int)] = alist.sort((x,y) => x._2 > y._2)//Sort by number of reply messages each user has posted
+		print("follow=")
+		for (i <- 1 to numChatters){
+			print(sortedList(i)._1)
+			if(i<numChatters)
+			print(",")
+			else
+			print("\n")
+		}
+	}
 
-		def getTopWordsByUser(userIdFile:String,stopWordFile:String){
-			val searcher:IndexSearcher = new IndexSearcher(IndexReader.open(index))
-			val parser: QueryParser = new QueryParser("user_id",new KeywordAnalyzer())
-			val hash = new HashMap[String, int]
-			var lines = Source.fromFile(userIdFile).getLines
-			while(lines.hasNext){
-				val line = lines.next.trim
-				val query:Query = parser.parse(line)
-				var collector:TopDocCollector = new TopDocCollector(1)
-				searcher.search(query,collector)
-				collector = new TopDocCollector(collector.topDocs().totalHits)
-				searcher.search(query,collector)
-				val hits = collector.topDocs().scoreDocs
-				for(i <- 0 to hits.length-1){
-					try{
-						val docId = hits(i).doc
-						val d:Document = searcher.doc(docId)
-						val value = d.getField("text").stringValue
-						val st = new StringTokenizer(value,"!.,;:'\"[]{}\\|+=_-)(*&^%$#@!`~? ")
-						while (st.hasMoreTokens()) {
-							val temp = st.nextToken
-							if(hash.contains(temp)){
-								hash.update(temp,hash.get(temp).get+1)
-							} 
-							else{
-								hash.put(temp,1)
-							}
-						}
-					}
-					catch{
-						case e:Exception => e.printStackTrace
+	def getHourResults(year:Range,month:Range,day:Range,hour:Range,term:String){//Different functions for different granulatrities?
+		val searcher = new IndexSearcher(IndexReader.open(index));
+		for (curYear <- year){
+			for (curMon <- month){
+				for (curDay <- day){
+					// val index = genIndexString(curYear,curMon,curDay)
+					for (curHour <- hour){
+						val sActor = new SearchActor(term,genDateStrings(curYear,curMon,curDay,curHour),index,searcher)
+						sActor.start()
 					}
 				}
 			}
-			var stopWordList = List[String]()
-			lines = Source.fromFile(stopWordFile).getLines
-			while(lines.hasNext){
-				stopWordList ::= lines.next
-			}
-			val alist = hash.toList
-			val sortedList:List[(String,int)] = alist.sort((x,y) => x._2 > y._2)
-			for (i <- 0 to sortedList.length-1){
-				if(!stopWordList.contains(sortedList(i)._1))
-				println(sortedList(i)._1+","+sortedList(i)._2)
-			}
 		}
+	}
 
-		def getTopChatters(term:String,numChatters:Int){
-			val searcher:IndexSearcher = new IndexSearcher(IndexReader.open(index))
+	def genIndexString(year:Int, mon:Int, day:Int):(String)={
+		var indMon=mon.toString
+		var indDay=day.toString
+		if (mon < 10)
+		indMon = "0" + mon
+		if (day < 10)
+		indDay = "0" + day
+		return "tweets."+year+"-"+indMon+"-"+indDay+"_index"
+	}
+
+	//Fixes leading zeroes on dates
+	def genDateStrings(year: Int, mon: Int, day: Int):(String,String)={
+		val start = new DateTime(year,mon,day,0,0,0,0)
+		val end = start.plusDays(1)
+		return (start.toString(),end.toString())
+	}
+
+	def genDateStrings(year: Int, mon: Int, day: Int, hour: Int):(String,String)={
+		val start = new DateTime(year,mon,day,hour,0,0,0)
+		val end = start.plusHours(1)
+		return (start.toString(),end.toString())
+	}
+
+	class SearchActor(term:String,dates:(String,String),index:String,searcher:IndexSearcher) extends Actor{
+		def act(){
+			val (start,end) = dates
 			val parser: QueryParser = new QueryParser("location",new TweetAnalyzer())
 			val query:Query = parser.parse(term)
-			val collector:TopDocCollector = new TopDocCollector(20000000)
-			searcher.search(query,collector)
-			val hits = collector.topDocs().scoreDocs
-			val hash = new HashMap[int, int]
-			for(i <- 0 to hits.length-1){
-				val docId = hits(i).doc
-				val d:Document = searcher.doc(docId)
-				val value = d.getField("user_id").stringValue
-				if(hash.contains(value.toInt)){
-					val num:Int = hash.get(value.toInt).get
-					hash.update(value.toInt,num+1)
-					} else{
-						hash.put(value.toInt,1)
-					}
-				}
-				val alist = hash.toList
-				val sortedList:List[(int,int)] = alist.sort((x,y) => x._2 > y._2)//Sort by number of reply messages each user has posted
-				print("follow=")
-				for (i <- 1 to numChatters){
-					print(sortedList(i)._1)
-					if(i<numChatters)
-					print(",")
-					else
-					print("\n")
-				}
-			}
-
-			def getHourResults(year:Range,month:Range,day:Range,hour:Range,term:String){//Different functions for different granulatrities?
-				val searcher = new IndexSearcher(IndexReader.open(index));
-				for (curYear <- year){
-					for (curMon <- month){
-						for (curDay <- day){
-							// val index = genIndexString(curYear,curMon,curDay)
-							for (curHour <- hour){
-								val sActor = new SearchActor(term,genDateStrings(curYear,curMon,curDay,curHour),index,searcher)
-								sActor.start()
-							}
-						}
-					}
-				}
-			}
-
-			def genIndexString(year:Int, mon:Int, day:Int):(String)={
-				var indMon=mon.toString
-				var indDay=day.toString
-				if (mon < 10)
-				indMon = "0" + mon
-				if (day < 10)
-				indDay = "0" + day
-				return "tweets."+year+"-"+indMon+"-"+indDay+"_index"
-			}
-
-			//Fixes leading zeroes on dates
-			def genDateStrings(year: Int, mon: Int, day: Int):(String,String)={
-				val start = new DateTime(year,mon,day,0,0,0,0)
-				val end = start.plusDays(1)
-				return (start.toString(),end.toString())
-			}
-
-			def genDateStrings(year: Int, mon: Int, day: Int, hour: Int):(String,String)={
-				val start = new DateTime(year,mon,day,hour,0,0,0)
-				val end = start.plusHours(1)
-				return (start.toString(),end.toString())
-			}
-
-			class SearchActor(term:String,dates:(String,String),index:String,searcher:IndexSearcher) extends Actor{
-				def act(){
-					val (start,end) = dates
-					val parser: QueryParser = new QueryParser("location",new TweetAnalyzer())
-					val query:Query = parser.parse(term)
-					val hits:TopDocs = searcher.search(query,new RangeFilter("created_at",start,end,true,false),1)
-					val query2: ConstantScoreRangeQuery = new ConstantScoreRangeQuery("created_at",start,end,true,false)
-					val totals:Hits = searcher.search(query2)
-					println(start+"\t"+hits.totalHits+"\t"+totals.length)
-				}
-			}
+			val hits:TopDocs = searcher.search(query,new RangeFilter("created_at",start,end,true,false),1)
+			val query2: ConstantScoreRangeQuery = new ConstantScoreRangeQuery("created_at",start,end,true,false)
+			val totals:Hits = searcher.search(query2)
+			println(start+"\t"+hits.totalHits+"\t"+totals.length)
 		}
+	}
+
+}
