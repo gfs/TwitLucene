@@ -25,32 +25,36 @@ object SearchTwitter{
 			val start = new DateTime
 			mode match{
 				case "hour" =>
-				val term = args(1)
-				val beg = args(2)
-				val end = args(3)
-				getHourResults((2009 to 2009), (06 to 06), (beg.toInt to end.toInt), (0 to 23), term)
+					val term = args(1)
+					val beg = args(2)
+					val end = args(3)
+					getHourResults((2009 to 2009), (06 to 06), (beg.toInt to end.toInt), (0 to 23), term)
 				case "topChatters" =>
-				val term = args(1)
-				val numChatters = args(2)
-				getTopChatters(term,numChatters.toInt)
+					val term = args(1)
+					val numChatters = args(2)
+					getTopChatters(term,numChatters.toInt)
 				case "twitUserIds" =>
-				val term = args(1)
-				getTwitAndUserIdsForWord(term)
+					val term = args(1)
+					getTwitAndUserIdsForWord(term)
 				case "topWordsByTwit" =>
-				val twitFile=args(1)
-				val stopFile = args(2)
-				getTopWordsByTwit(twitFile,stopFile)
+					val twitFile=args(1)
+					val stopFile = args(2)
+					getTopWordsByTwit(twitFile,stopFile)
 				case "topWordsByUser" =>
-				val userFile=args(1)
-				val stopFile = args(2)
-				getTopWordsByUser(userFile,stopFile)
+					val userFile=args(1)
+					val stopFile = args(2)
+					getTopWordsByUser(userFile,stopFile)
+				case "userPairTopics" =>
+					val userFile=args(1)
+					val cutoff=args(2)
+					getUserPairTopics(userFile,cutoff)
 				case "help" =>
-				printHelp
+					printHelp
 			}
 			} catch{
 				case e:Exception =>
-				e.printStackTrace
-				printHelp
+					e.printStackTrace
+					printHelp
 			}
 		}
 
@@ -84,6 +88,59 @@ object SearchTwitter{
 			val sortedList:List[(String,(int,String))] = alist.sort((x,y) => x._2._1 > y._2._1)
 			sortedList.foreach{(elem) =>
 				println(elem._1+"\t"+elem._2._1+"\t"+elem._2._2)
+			}
+		}
+
+		def getUserPairTopics(userFile:String,cutoff:Int){
+			val searcher:IndexSearcher = new IndexSearcher(IndexReader.open(index))
+			val parser: QueryParser = new QueryParser("user_id",new KeywordAnalyzer())
+			val hash = new HashMap[(String,String),List[(String,Int)]]
+			var lines = Source.fromFile(twitIdFile).getLines
+			while(lines.hasNext){//foreach pair of users
+				try{
+					val line = lines.next.trim
+					val users=line.split(",")
+					val query:Query = parser.parse("(+user_id:"+users(0)+" +in_reply_to_user_id:"+users(1)+") OR (+user_id:"+users(1)+" +in_reply_to_user_id:"+users(0)+")")
+					var collector:TopDocCollector = new TopDocCollector(1)
+					searcher.search(query,collector)
+					collector = new TopDocCollector(collector.topDocs().totalHits)
+					searcher.search(query,collector)
+					val hits = collector.topDocs().scoreDocs
+					val pairHash = new HashMap[String, int]
+					for(i<- 0 to hits.length()-1){
+						val docId = hits(i).doc
+						val d:Document = searcher.doc(docId)
+						val value = d.getField("text").stringValue
+						val st = new StringTokenizer(value,"!.,;:'\"[]{}\\|+=_-)(*&^%$@!`~? ")
+						while (st.hasMoreTokens()) {
+							val temp = st.nextToken
+							if(hash.contains(temp)){
+								hash.update(temp,hash.get(temp).get+1)
+							} 
+							else{
+								hash.put(temp,1)
+							}
+						}
+					}
+					val pairList = pairHash.toList
+					val pairSortedList:List[(String,int)] = pairList.sort((x,y) => x._2 > y._2)
+					hash.put((users(0),users(1)),pairSortedList)
+				}
+				catch{
+					case _ =>
+						e.printStackTrace
+				}
+			}
+			val tehList = hash.toList
+			for (i <- 0 to tehList.length-1){
+				print(tehList(i)._1._1+"\t"+tehList(i)._1._2+"\t")
+				val list=tehList(i)._2
+				for(j <- 0 to list.length-1){
+					if(list(j)._2>cutoff){
+						print(list(j)._1+"."+list(j)._2)
+					}
+				}
+				print("\n")
 			}
 		}
 
