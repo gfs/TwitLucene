@@ -158,13 +158,22 @@ object SearchTwitter{
 			try{
 				val line = lines.next.trim
 				val users=line.split(",")
-				val query:Query = parser.parse("(+user_id:"+users(0)+" +in_reply_to_user_id:"+users(1)+") OR (+user_id:"+users(1)+" +in_reply_to_user_id:"+users(0)+")")
-				val query:Query = parser.parse("(+user_id:"+users(0)+" +in_reply_to_user_id:"+users(1)+") OR (+user_id:"+users(1)+" +in_reply_to_user_id:"+users(0)+")")
+				var query:Query = parser.parse("user_id:"+users(0))
 				var collector:TopDocCollector = new TopDocCollector(1)
+				searcher.search(query,collector)
+				var hits = collector.topDocs().scoreDocs
+				val userName1=searcher.doc(hits(0).doc).getField("screen_name").stringValue
+				query = parser.parse("user_id:"+users(1))
+				collector = new TopDocCollector(1)
+				searcher.search(query,collector)
+				hits = collector.topDocs().scoreDocs
+				val userName2=searcher.doc(hits(0).doc).getField("screen_name").stringValue
+				query= parser.parse("(+user_id:"+users(0)+" +in_reply_to_user_id:"+users(1)+") OR (+user_id:"+users(1)+" +in_reply_to_user_id:"+users(0)+")")
+				collector = new TopDocCollector(1)
 				searcher.search(query,collector)
 				collector = new TopDocCollector(collector.topDocs().totalHits)
 				searcher.search(query,collector)
-				val hits = collector.topDocs().scoreDocs
+				hits = collector.topDocs().scoreDocs
 				val pairHash = new HashMap[String, int]
 				for(i<- 0 to hits.length-1){
 					val docId = hits(i).doc
@@ -183,7 +192,7 @@ object SearchTwitter{
 				}
 				val pairList = pairHash.toList
 				val pairSortedList:List[(String,int)] = pairList.sort((x,y) => x._2 > y._2)
-				hash.put((users(0),users(1)),pairSortedList)
+				hash.put((users(0),userName1,users(1),userName2),pairSortedList)
 			}
 			catch{
 				case e:Exception =>
@@ -197,7 +206,7 @@ object SearchTwitter{
 		}
 		val tehList = hash.toList
 		for (i <- 0 to tehList.length-1){
-			print(tehList(i)._1._1+"\t"+tehList(i)._1._2+"\t")
+			print(tehList(i)._1._1+":"+tehList(i)._1._2+"\t"+tehList(i)._1._3+":"+tehList(i)._1._4+"\t")
 			val list=tehList(i)._2
 			for(j <- 0 to list.length-1){
 				if(list(j)._2>=cutoff){
