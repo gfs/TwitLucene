@@ -192,7 +192,12 @@ object SearchTwitter{
 				}
 				val pairList = pairHash.toList
 				val pairSortedList:List[(String,int)] = pairList.sort((x,y) => x._2 > y._2)
-				hash.put((users(0),userName1,users(1),userName2),pairSortedList)
+				if(Integer.parseInt(users(0))>Integer.parseInt(users(1))){
+					hash.put((users(0),userName1,users(1),userName2),pairSortedList)
+				}
+				else{
+					hash.put((users(1),userName2,users(0),userName1),pairSortedList)
+				}
 			}
 			catch{
 				case e:Exception =>
