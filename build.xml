@@ -96,6 +96,18 @@
 		</jar>
 	</target>
 
+	<target name="UserCorpora" depends="prepJar">
+		<mkdir dir="${dist.dir}"/>
+		<manifest file="MANIFEST.MF">
+			<attribute name="Main-Class" value="com.gstocco.TwitLucene.UserCorpora"/>
+			<attribute name="Built-Date" value="${TODAY}"/>
+			<attribute name="Class-Path" value="${mf.classpath}" />
+		</manifest>
+		<jar destfile="${dist.dir}/UserCorpora.jar" basedir="${build.dir}" includes="**/*.*" manifest="MANIFEST.MF">
+			<zipgroupfileset refid="jar.lib"/>
+		</jar>
+	</target>
+
 	<target name="dist">
 		<antcall target="HttpServer"/>
 		<antcall target="ParseJSON"/>
