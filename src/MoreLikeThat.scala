@@ -11,7 +11,12 @@ import org.apache.lucene.search.Query
 object MoreLikeThat{
 	def main(args:Array[String]){
 		args(0) match{
-			case ""
+			case x:String=>
+				val lines = Source.fromFile(x).getLines()
+				while(lines.hasNext){
+					val line = lines.next.trim
+					
+				}
 		}
 	}
 	
