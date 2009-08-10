@@ -10,6 +10,7 @@ object UserCorpora{
 		val reader:IndexReader = IndexReader.open("theFullIndex")
 		val hash = new HashMap[String,(String,String,int)]
 		for(i <- 0 to reader.maxDoc){
+			try{
 			if(!reader.isDeleted(i)){
 				val doc:Document = reader.document(i)
 				val uId = doc.getField("user_id").stringValue
@@ -21,17 +22,25 @@ object UserCorpora{
 					hash.put(uId,(doc.getField("screen_name").stringValue,doc.getField("text").stringValue,1))
 				}
 			}
+			}
+			catch{
+				case e:Exception =>
+			}
 		}
 		val list = hash.toList
 		println("starting corpora index")
 		val writer = new IndexWriter("theCorporaIndex", new TweetAnalyzer(),IndexWriter.MaxFieldLength.UNLIMITED)
 		list.foreach{(elem) =>
+			try{
 			val doc = new Document
 			doc.add(new Field("user_id", elem._1, Field.Store.YES, Field.Index.NOT_ANALYZED))
 			doc.add(new Field("screen_name", elem._2._1, Field.Store.YES, Field.Index.NOT_ANALYZED))
-			doc.add(new Field("text", elem._2._2, Field.Store.YES, Field.Index.ANALYZED))
+			doc.add(new Field("text", elem._2._2, Field.Store.YES, Field.Index.ANALYZED,Field.TermVector.WITH_POSITIONS_OFFSETS))
 			doc.add(new Field("num_docs", elem._2._3.toString, Field.Store.YES, Field.Index.NOT_ANALYZED))
-			writer.addDocument(doc)
+			writer.addDocument(doc)}
+			catch{
+				case e:Exception =>
+			}
 		}
 		writer.close()
 	}

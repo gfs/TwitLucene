@@ -100,35 +100,6 @@ object SearchTwitter{
 	}
 
 	def getStopList(cutoff:Int){
-		// val searcher:IndexSearcher = new IndexSearcher(IndexReader.open(index))
-		// val parser: QueryParser = new QueryParser("created_at",new KeywordAnalyzer())
-		// val query:Query = parser.parse("[0000-00-00T00:00:00.000-00:00 TO 9999-99-99T99:99:99.999-99:99]")
-		// var collector:TopDocCollector = new TopDocCollector(1)
-		// searcher.search(query,collector)
-		// collector = new TopDocCollector(collector.topDocs().totalHits)
-		// searcher.search(query,collector)
-		// val hits = collector.topDocs().scoreDocs
-		// val hash = new HashMap[String,Int]
-		// for(i<- 0 to hits.length-1){
-		// 	val docId = hits(i).doc
-		// 	val d:Document = searcher.doc(docId)
-		// 	val value = d.getField("text").stringValue
-		// 	val st = new StringTokenizer(value,"!.,;:'\"[]{}\\|+=_-)(*#&^%$@!`~? ")
-		// 	while (st.hasMoreTokens()) {
-		// 		val temp = st.nextToken
-		// 		if(hash.contains(temp)){
-		// 			hash.update(temp,hash.get(temp).get+1)
-		// 		} 
-		// 		else{
-		// 			hash.put(temp,1)
-		// 		}
-		// 	}
-		// }
-		// val alist = hash.toList
-		// val sortedList:List[(String,int)] = alist.sort((x,y) => x._2 > y._2)
-		// for(i<- 0 to cutoff-1){
-		// 	println(sortedList(i)._1+","+sortedList(i)._2)
-		// }
 		val reader:IndexReader = IndexReader.open(index)
 		val terms:TermEnum = reader.terms
 		val hash = new HashMap[String,int]
