@@ -13,6 +13,7 @@ import org.apache.lucene.search.Hits
 import org.apache.lucene.search.IndexSearcher
 import org.apache.lucene.search.Query
 import org.apache.lucene.search.TopDocCollector
+import org.apache.lucene.search.BooleanQuery
 
 import scala.io.Source
 
@@ -48,26 +49,31 @@ object MoreLikeThat{
 				}
 				fromTwoLists(listA,listB)
 			case "alexyFormat"=>
-				var lines=Source.fromFile(args(1)).getLines
+				val lines=Source.fromFile(args(1)).getLines
 				var listA = List[String]()
 				var listB = List[String]()
+				var community = true
 				while(lines.hasNext){
-					var line = lines.next.trim
+					val line = lines.next.trim
 					if(line.substring(0,1)!="#"){
-						var tokens = line.split(",")
-						tokens[0].substring(0,1) match{
-							case "c"=>
-								tokens.foreach{(elem)=>
-									listA += elem.substring(1,elem.length-1)
-								}
-							case "f"=>
-								tokens.foreach{(elem)=>
-									listB += elem.substring(1,elem.length-1)
-								}
+						val tokens = line.split(",")
+						if(community){
+							tokens.foreach{(elem)=>
+								listA += elem	
+							}
+							community = false
+						}
+						else{
+							tokens.foreach{(elem)=>
+								listB += elem	
+							}
+							community=true
+							fromTwoLists(listA,listB)
+							listA=List[String]()
+							listB=List[String]()
 						}
 					}
 				}
-				fromTwoLists(listA,listB)
 		}
 	}
 	
@@ -113,34 +119,48 @@ object MoreLikeThat{
 	// }
 		
 	def fromTwoLists(listA:List[String],listB:List[String]){
+		BooleanQuery.setMaxClauseCount(Integer.MAX_VALUE)
 		val ir = IndexReader.open("theCorporaIndex")
 		val is = new IndexSearcher(ir)
-		var queryString=queryStringForList(listA,is)
-		val mlt = new MoreLikeThis(ir)
-		val arr = new Array[String](1)
-		arr(0) = "text"
-		mlt.setFieldNames(arr)
-		mlt.setAnalyzer(new TweetAnalyzer)
-		val query = mlt.like(new StringReader(queryString))
-		val qp = new QueryParser("user_id",new TweetAnalyzer)
-		var str = new String("(")
-		listB.foreach{(elem)=>
-			str += "user_id:"+elem+" "
+		var query=queryStringForList(listA,is)
+		val qp = new QueryParser("text",new TweetAnalyzer)
+		var str = new String()
+		if(listB.length>=1){
+			str+="("
+			listB.foreach{(elem)=>
+				str += "user_id:"+elem+" "
+			}
+			str += ") AND ("
+		}		
+		str += query+")"
+		var nQuery = qp.parse(str)
+		var fixdQuery = nQuery.toString
+		var i=0
+		while(fixdQuery.indexOf('-')!=(-1)){
+			fixdQuery = fixdQuery.substring(0,fixdQuery.indexOf('-'))+fixdQuery.substring(fixdQuery.indexOf('-')+1)
+			nQuery = qp.parse(fixdQuery)
+			fixdQuery = nQuery.toString
+			i+=1
 		}
-		str += ") AND "
-		str += query.toString
-		val nQuery = qp.parse(str)
-		var collector:TopDocCollector = new TopDocCollector(1)
-		is.search(nQuery,collector)
-		collector = new TopDocCollector(collector.topDocs().totalHits)
+		while(fixdQuery.indexOf('+')!=(-1)){
+			fixdQuery = fixdQuery.substring(0,fixdQuery.indexOf('+'))+fixdQuery.substring(fixdQuery.indexOf('+')+1)
+			nQuery = qp.parse(fixdQuery)
+			fixdQuery = nQuery.toString
+			i+=1
+		}
+		// println(nQuery)
+		val collector:TopDocCollector = new TopDocCollector(listB.length)
 		is.search(nQuery,collector)
 		val hits = collector.topDocs().scoreDocs
 		for(i <- 0 to hits.length-1){
 			val docId = hits(i).doc
 			val d:Document = is.doc(docId)
 			val user = d.getField("user_id").stringValue
-			println(user)
+			val score = hits(i).score
+			println(score +"\t"+ user)
 		}
+		println("\n----------------------------------------------------------\n")
+		Thread.sleep(10000)
 	}
 	
 	def queryStringForList(inList:List[String],is:IndexSearcher):String={
@@ -150,10 +170,29 @@ object MoreLikeThat{
 			try{
 				val hits = is.search(qp.parse(elem))
 				val hit = hits.doc(0)
-				queryString=queryString + " "+ hit.get("text")
+				// var tokens = hit.get("text").split(" ")
+				// tokens.foreach{(elem)=>
+				// 	queryString += elem.trim
+				// }
+				// queryString=queryString + " "+ hit.get("text").trim
+				hit.get("text").foreach{(char)=>
+					char match{
+						case '#' =>
+							queryString += char
+						case '@' =>
+							queryString += char
+						case ' ' =>
+							queryString += char
+						case char:char=>
+							if(('a' to 'z').contains(char) || ('A' to 'Z').contains(char) || ('0' to '9').contains(char)){
+								queryString += char
+							}
+					}
+				}
 			}
 			catch{
-				case _ => println("No results for "+elem)
+				case e:Exception => e.printStackTrace
+				println("No results for "+elem+"?")
 			}
 		}
 		return queryString
