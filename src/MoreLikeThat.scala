@@ -47,8 +47,30 @@ object MoreLikeThat{
 					listB += line
 				}
 				fromTwoLists(listA,listB)
+			case "alexyFormat"=>
+				var lines=Source.fromFile(args(1)).getLines
+				var listA = List[String]()
+				var listB = List[String]()
+				while(lines.hasNext){
+					var line = lines.next.trim
+					if(line.substring(0,1)!="#"){
+						var tokens = line.split(",")
+						tokens[0].substring(0,1) match{
+							case "c"=>
+								tokens.foreach{(elem)=>
+									listA += elem.substring(1,elem.length-1)
+								}
+							case "f"=>
+								tokens.foreach{(elem)=>
+									listB += elem.substring(1,elem.length-1)
+								}
+						}
+					}
+				}
+				fromTwoLists(listA,listB)
 		}
 	}
+	
 	
 	def fromList(inList:List[String],stopSet:java.util.	Set[String]){
 			val ir = IndexReader.open("theCorporaIndex")
