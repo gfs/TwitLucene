@@ -2,6 +2,7 @@ package com.gstocco.TwitLucene
 
 object SearchTwitter{
 	import java.util.StringTokenizer
+	import org.joda.time.DateTime
 
 	import org.apache.lucene.analysis.standard.StandardAnalyzer
 	import org.apache.lucene.analysis.{Analyzer,KeywordAnalyzer}
@@ -14,7 +15,6 @@ object SearchTwitter{
 	import org.apache.lucene.search.{IndexSearcher,TopDocs,RangeFilter,Query,ConstantScoreRangeQuery,HitIterator,Hits,Hit,TopDocCollector}
 	import org.apache.lucene.util.PriorityQueue
 
-	import org.joda.time.DateTime
 
 	import scala.actors._
 	import scala.actors.Actor._
@@ -40,6 +40,12 @@ object SearchTwitter{
 				case "twitUserIds" =>
 					val term = args(1)
 					getTwitAndUserIdsForWord(term)
+				case "userPairsForTerm" =>
+					val term = args(1)
+					getUserPairsForTerm(term)
+				case "symPairsForTerm" =>
+					val term = args(1)
+					getSymPairsForTerm(term)
 				case "topWordsByTwit" =>
 					val twitFile=args(1)
 					val stopFile = args(2)
@@ -68,6 +74,89 @@ object SearchTwitter{
 
 	def printHelp{
 		println("Run options: {hour term begin end} | {topChatters term numChatters} | {twitUserIds term} | {topWordsByTwit twitFile stopFile} | {topWordsByUser userFile stopFile} | {userPairTopics userFile stopFile cutoff} | {getStopList cutoff} | {help}")
+	}
+
+	def getSymPairsForTerm(term:String){
+		val searcher:IndexSearcher = new IndexSearcher(IndexReader.open("/Users/gabe/Code/TwitTrends/theFullIndex"))
+		val parser: QueryParser = new QueryParser("text",new KeywordAnalyzer())
+		var query:Query = parser.parse(term)
+		var hits = searcher.search(query)
+		val hash = new HashMap[String, (int, String)]
+		for(i <- 0 to hits.length-1){
+			val docId = hits.id(i)
+			val d:Document = searcher.doc(docId)
+			val user = d.getField("user_id").stringValue
+			val twitId = d.getField("id").stringValue
+			if(hash.contains(user)){
+				hash.update(user,( (hash.get(user).get._1) + 1 , (hash.get(user).get._2) +","+twitId ) )
+			} 
+			else{
+				hash.put(user,(1,twitId))
+			}
+		}
+		val alist = hash.toList
+		val userMap = new HashMap[int, int]
+		val origQuery = query.toString
+		alist.foreach{(elem) => //foreach user
+			query= parser.parse("+user_id:"+elem._1+" -in_reply_to_user_id:null "+origQuery)
+			var hits = searcher.search(query)
+			val uId = Integer.parseInt(elem._1)
+			for(i <- 0 to hits.length-1){
+				val docId = hits.id(i)
+				val d:Document = searcher.doc(docId)
+				val r_uId = Integer.parseInt(d.getField("in_reply_to_user_id").stringValue)
+				if(hash.contains(d.getField("in_reply_to_user_id").stringValue)){
+					if(!userMap.contains(Math.min(uId,r_uId))){
+						userMap.put(Math.min(uId,r_uId),Math.max(uId,r_uId))
+					}
+				}
+			}
+		}
+		val userList = userMap.toList
+		userList.foreach{(elem) =>
+			println(elem._1+","+elem._2)
+		}
+	}
+
+	def getUserPairsForTerm(term:String){
+		val searcher:IndexSearcher = new IndexSearcher(IndexReader.open("/Users/gabe/Code/TwitTrends/theFullIndex"))
+		val parser: QueryParser = new QueryParser("text",new KeywordAnalyzer())
+		var query:Query = parser.parse(term)
+		var hits = searcher.search(query)
+		val hash = new HashMap[String, (int, String)]
+		for(i <- 0 to hits.length-1){
+			val docId = hits.id(i)
+			val d:Document = searcher.doc(docId)
+			val user = d.getField("user_id").stringValue
+			val twitId = d.getField("id").stringValue
+			if(hash.contains(user)){
+				hash.update(user,( (hash.get(user).get._1) + 1 , (hash.get(user).get._2) +","+twitId ) )
+			} 
+			else{
+				hash.put(user,(1,twitId))
+			}
+		}
+		val alist = hash.toList
+		val userMap = new HashMap[int, int]
+		alist.foreach{(elem) => //foreach user
+			query= parser.parse("+user_id:"+elem._1+" -in_reply_to_user_id:null")
+			var hits = searcher.search(query)
+			val uId = Integer.parseInt(elem._1)
+			for(i <- 0 to hits.length-1){
+				val docId = hits.id(i)
+				val d:Document = searcher.doc(docId)
+				val r_uId = Integer.parseInt(d.getField("in_reply_to_user_id").stringValue)
+				if(hash.contains(d.getField("in_reply_to_user_id").stringValue)){
+					if(!userMap.contains(Math.min(uId,r_uId))){
+						userMap.put(Math.min(uId,r_uId),Math.max(uId,r_uId))
+					}
+				}
+			}
+		}
+		val userList = userMap.toList
+		userList.foreach{(elem) =>
+			println(elem._1+","+elem._2)
+		}
 	}
 
 	def getTwitAndUserIdsForWord(term:String){
