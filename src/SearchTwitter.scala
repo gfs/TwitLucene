@@ -75,9 +75,9 @@ object SearchTwitter{
 	def printHelp{
 		println("Run options: {hour term begin end} | {topChatters term numChatters} | {twitUserIds term} | {topWordsByTwit twitFile stopFile} | {topWordsByUser userFile stopFile} | {userPairTopics userFile stopFile cutoff} | {getStopList cutoff} | {help}")
 	}
-
+	
 	def getSymPairsForTerm(term:String){
-		val searcher:IndexSearcher = new IndexSearcher(IndexReader.open("/Users/gabe/Code/TwitTrends/theFullIndex"))
+		val searcher:IndexSearcher = new IndexSearcher(IndexReader.open(index))
 		val parser: QueryParser = new QueryParser("text",new KeywordAnalyzer())
 		var query:Query = parser.parse(term)
 		var hits = searcher.search(query)
