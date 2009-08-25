@@ -62,6 +62,10 @@ object SearchTwitter{
 				case "getStopList" =>
 					val cutoff=args(1)
 					getStopList(Integer.parseInt(cutoff))
+				case "filterUsersByTerm" =>
+					val term=args(2)
+					val file=args(1)
+					filterUsersByTerm(term,file)
 				case "help" =>
 					printHelp
 			}
@@ -74,6 +78,31 @@ object SearchTwitter{
 
 	def printHelp{
 		println("Run options: {hour term begin end} | {topChatters term numChatters} | {twitUserIds term} | {topWordsByTwit twitFile stopFile} | {topWordsByUser userFile stopFile} | {userPairTopics userFile stopFile cutoff} | {getStopList cutoff} | {help}")
+	}
+	
+	def filterUsersByTerm(term:String,userFile:String){
+		val lines = Source.fromFile(userFile).getLines
+		val searcher:IndexSearcher = new IndexSearcher(IndexReader.open(index))
+		val parser: QueryParser = new QueryParser("text",new TweetAnalyzer())
+		val query:Query = parser.parse(term)
+		val hits=searcher.search(query)
+		val hash = new HashMap[String,int]
+		lines.foreach{(line)=>
+			hash.put(line.trim,0)
+		}
+		for(i <- 0 to hits.length-1){
+			val docId = hits.id(i)
+			val d:Document = searcher.doc(docId)
+			val user = d.getField("user_id").stringValue
+			if(hash.contains(user)){
+				hash.update(user,hash.get(user).get+1)
+			}
+		}
+		val alist=hash.toList
+		val sortedList:List[(String,int)] = alist.sort((x,y) => x._2 > y._2)
+		sortedList.foreach{(elem) =>
+			println(elem._1+"\t"+elem._2)
+		}
 	}
 	
 	def getSymPairsForTerm(term:String){
