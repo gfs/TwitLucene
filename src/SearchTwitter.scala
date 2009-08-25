@@ -101,7 +101,9 @@ object SearchTwitter{
 		val alist=hash.toList
 		val sortedList:List[(String,int)] = alist.sort((x,y) => x._2 > y._2)
 		sortedList.foreach{(elem) =>
-			println(elem._1+"\t"+elem._2)
+			if(elem._2>0){
+				println(elem._1)
+			}
 		}
 	}
 	
