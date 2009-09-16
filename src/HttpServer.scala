@@ -33,11 +33,87 @@ object HttpServer{
 			args(0) match{
 				case "gardenhose" => getGardenhose
 				case "shadow" => if(args.length>1){getShadow(args(1))}
+				case "crawlByUser" => if(args.length==3){ setWriter(new PrintWriter(new BufferedWriter(new FileWriter("REST."+args(1)+".Crawl")))); crawlByUser(args(1),Integer.parseInt(args(2)));}
 				case _ => println("Please provide an argument: either gardenhose or shadow.")
 						  err.println("Please provide and argument: either gardenhose or shadow.")
 			}
 		}
 
+	}
+	
+	def crawlByUser(userId:String,levels:Int){
+		println("Crawling "+userId)
+		if(levels > 0){
+			val client:HttpClient = new HttpClient()
+			var page = 1
+			var results = 1
+			while(results>0){
+				results=0
+				val httpget:GetMethod = new GetMethod("http://twitter.com/statuses/user_timeline.json?screen_name="+userId+"&count=200&page="+page)
+				val defaultcreds:UsernamePasswordCredentials = new UsernamePasswordCredentials("gstocco", "password")
+				client.getState.setCredentials(new AuthScope("twitter.com", 80, AuthScope.ANY_REALM), defaultcreds)
+				try {
+					client.executeMethod(httpget)
+					var reader:BufferedReader = new BufferedReader(new InputStreamReader(httpget.getResponseBodyAsStream,"UTF-8"))
+					var tweet:String =""
+					var tacos = true
+					while(tacos){
+						reader.read.toChar match{
+							case -1 =>  	err.print("Got a -1 character from the reader.")
+											tacos = false
+							// case '\r' =>	println("teh fux")
+							// 						push(tweet)//Write tweet to file
+							// 						results+=1
+							// 						val ind = tweet.indexOf("\"in_reply_to_user_id:\"")
+							// 						val substr = tweet.substring(ind+20)
+							// 						val ind2 = substr.indexOf(',')
+							// 						val idToQueue = tweet.substring(ind+20,ind2)
+							// 						if(idToQueue.compareTo("null")!=0){
+							// 							crawlByUser(idToQueue,levels-1)
+							// 						}
+							// 						tweet=""
+							// 						timeout=1
+							case x:char => 	if(tweet.length>2 && tweet.substring(tweet.length-3,tweet.length).compareTo("},{")==0){
+												checkAndPush(tweet.substring(0,tweet.length-1),levels)
+												tweet=tweet.substring(tweet.length)+x
+												results+=1
+											} else if(tweet.length>2 && tweet.substring(tweet.length-3,tweet.length).compareTo("}]")==0){
+												checkAndPush(tweet,levels)
+												tweet=""
+												tacos=false
+												results+=1
+											}
+											else{
+												tweet=tweet+x
+											}
+						}
+					}
+				}
+				catch {
+					case e:Exception => e.printStackTrace
+				}
+				finally {
+					err.println("Hit an exception.")
+					httpget.releaseConnection()
+				}
+				page+=1		
+			}
+		}
+	}
+	
+	def checkAndPush(tweet:String,levels:Int){
+		push(tweet)
+		println(tweet+" was pushed")
+		val ind = tweet.indexOf("\"in_reply_to_screen_name\":")
+		var substr = tweet.substring(ind)
+		substr = substr.substring(substr.indexOf(':')+1)
+		println("wtf "+substr)
+		val ind2 = substr.indexOf(',')
+		val ind3 = substr.indexOf('"')
+		if(substr.substring(0,4).compareTo("null")!=0){
+			val idToQueue = substr.substring(ind3+1,ind2-1)
+			crawlByUser(idToQueue,levels-1)
+		}	
 	}
 
 	def getGardenhose{
@@ -114,6 +190,7 @@ object HttpServer{
 
 	def push(input:String){
 		writer.print(input)
+		writer.flush
 	}
 
 	def setWriter(writer:PrintWriter){
