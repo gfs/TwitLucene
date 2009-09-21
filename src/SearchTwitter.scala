@@ -150,7 +150,7 @@ object SearchTwitter{
 	}
 
 	def getUserPairsForTerm(term:String){
-		val searcher:IndexSearcher = new IndexSearcher(IndexReader.open("/Users/gabe/Code/TwitTrends/theFullIndex"))
+		val searcher:IndexSearcher = new IndexSearcher(IndexReader.open(index))
 		val parser: QueryParser = new QueryParser("text",new KeywordAnalyzer())
 		var query:Query = parser.parse(term)
 		var hits = searcher.search(query)
